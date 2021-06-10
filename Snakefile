@@ -1,15 +1,19 @@
 # Adrian Verster
 
+# conda activate 16S
+# snakemake -j 3 -p
+
 import config
 
-RUNS = ["571834","571835","571836"]
+RUNS = config.RUNS
 
 rule all:
 	input:
 		expand("{run}/qhist.txt", run=RUNS),
 		expand("{run}/{run}_metphlan.txt", run=RUNS),
                 expand("{run}/MetaSpades/", run=RUNS),
-                expand("{run}/{run}_metphlan_geneabundance.txt",run=RUNS)
+		"mapped_gc_content.csv",
+		"assembly_stats.csv"
 
 rule gzip:
 	input:
@@ -55,6 +59,8 @@ rule metaphlan:
 	shell:
 		"/home/adrian/anaconda3/envs/16S/bin/metaphlan {input.R1},{input.R2} --input_type fastq -o {output.ab} --nproc 8 --bowtie2out {output.bowtie}" 
 
+
+# I didn't end up using this. I thought it might be helpful to look at the abundances of the individual marker genes, but it ended up leading me astray.
 rule metaphlan_marker_ab:
         input:
                 R1="{run}/{run}_R1.qc.fastq.gz",
@@ -65,6 +71,8 @@ rule metaphlan_marker_ab:
 	shell:
 		"/home/adrian/anaconda3/envs/16S/bin/metaphlan {input.R1},{input.R2} --input_type fastq -o {output.ab} --nproc 8 --bowtie2out {output.bowtie} -t marker_ab_table" 
 
+
+# Basic assembly. Might want to try this with the --meta option as well.
 rule metaspades:
 	input:
                 R1="{run}/{run}_R1.qc.fastq.gz",
@@ -75,6 +83,20 @@ rule metaspades:
 		"metaspades.py -1 {input.R1} -2 {input.R2} -o {output}"
 
 
+rule metaspades_stats:
+	input:
+		expand("{run}/MetaSpades/", run=RUNS)
+	output:
+		"assembly_stats.csv"
+	run:
+		infiles = [Path(x) / "scaffolds.fasta" for x in input]
+		infiles = [str(x) for x in infiles]
+		shell("python lib/quantify_assemblies.py %s" %(" ".join(infiles)))
+
+
+####
+# Should count SNPs but I didn't use it
+####
 rule midas:
 	input:
                 R1="{run}/{run}_R1.qc.fastq.gz",
@@ -84,7 +106,9 @@ rule midas:
 	shell:
 		"/home/adrian/MIDAS/scripts/run_midas.py species {output} -1 {input.R1} -2 {input.R2} -t 16 -d /media/Data/LabOnAChip/MIDAS/midas_db_v1.2"
 
-
+####
+# Maps to the file with both listeria and ecoli in one fasta file
+####
 rule map:
 	input:
                 R1="{run}/{run}_R1.qc.fastq.gz",
@@ -94,16 +118,20 @@ rule map:
 	shell:
 		"bbmap.sh in={input.R1} out={output} ref=Data/combined_ecoli_listeria.fasta ambig=toss"
 
-
+####
+# This currently uses k=1, so it just counts GC content
+####
 rule count_kmers:
 	input:
                 R1="{run}/{run}_R1.qc.fastq.gz",
                 R2="{run}/{run}_R2.qc.fastq.gz",
 		metaphlan_bowtie="{run}/{run}.metaphlanbowtie.gz",
 	output:
-		"{run}/{run}_R1.GC.mapped.txt"
-	shell:
-		"python count_kmers.py {input.R1} {output} {input.metaphlan_bowtie}"
+		GC="{run}/{run}_R1.GC.txt",
+		GC_mapped="{run}/{run}_R1.GC.mapped.txt"
+	run:
+		shell("python lib/count_kmers.py {input.R1} {output.GC}"),
+		shell("python lib/count_kmers.py {input.R1} {output.GC_mapped} {input.metaphlan_bowtie}")
 
 
 rule pileup:
@@ -117,6 +145,7 @@ rule pileup:
 		shell("samtools view -S -b {input} > {output.bam}")
 		shell("samtools sort {output.bam} -o {output.bam_sorted}")
 		shell("samtools mpileup {output.bam_sorted} -f Data/combined_ecoli_listeria.fasta  > {output.pileup}")
+
 
 rule mapped_gc_bins:
 	input:

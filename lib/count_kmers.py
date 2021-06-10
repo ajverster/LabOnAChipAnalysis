@@ -33,8 +33,11 @@ def count(infile, k = 1, reads_oi = None):
     return counts
 
 if __name__ == "__main__":
+    # Fastq.gz sequencing file
     infile = sys.argv[1]
+    # CSV file you want to read
     outfile = sys.argv[2]
+    # If you want to only count GC in a subset of the reads. Currently only work on the metaphlan 
     infile_reads_oi = sys.argv[3]
     reads_oi = hash_reads(infile_reads_oi)
 

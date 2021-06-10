@@ -6,67 +6,48 @@ library('scales')
 # AQHist Plot
 ####
 
-infile <- "571834_aqhist.txt"
-df1 <- read_tsv(infile)
-df1$type <- "standard"
-colnames(df1)[1] <- str_replace(colnames(df1)[1], "#", "")
+load_bbduk_files <- function(infile, label) {
+	df <- read_tsv(infile)
+	df$type <- label
+	colnames(df)[1] <- str_replace(colnames(df)[1], "#", "")
+}
 
-infile <- "571835_aqhist.txt"
-df2 <- read_tsv(infile)
-df2$type <- "LabOnAChip1"
-colnames(df2)[1] <- str_replace(colnames(df2)[1], "#", "")
-
-infile <- "571836_aqhist.txt"
-df3 <- read_tsv(infile)
-df3$type <- "LabOnAChip2"
-colnames(df3)[1] <- str_replace(colnames(df3)[1], "#", "")
-
+df1 <- load_bbduk_files("571834/571834_aqhist.txt", "standard")
+df2 <- load_bbduk_files("571835/571835_aqhist.txt", "LabOnAChip1")
+df3 <- load_bbduk_files("571836/571836_aqhist.txt", "LabOnAChip2")
+colors.use <- c("#4682b4", "#5e99c5", "#D74B4B")
 df_plot <- bind_rows(df1, df2, df3)
 
 df_plot_group <- df_plot %>% filter(Quality > 0) %>% group_by(type,bin=cut(Quality, breaks = seq(from=0,to=40,by=5), labels = paste(seq(from=0,to=35,by=5), "-", seq(from=5,to=40,by=5)))) %>% summarize(sum=sum(fraction1))
 
-ggplot(df_plot_group, aes(x = bin, y = sum)) + geom_bar(stat="identity", aes(fill = type), position="dodge", color = "black") + theme_bw(16) + scale_y_continuous(labels = scales::percent) + xlab("Quality score") + ylab("Percentage of reads") + theme(axis.text = element_text(color="black"), axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1)) + scale_fill_manual(values=c("#4682b4", "#5e99c5", "#D74B4B"))
+ggplot(df_plot_group, aes(x = bin, y = sum)) + geom_bar(stat="identity", aes(fill = type), position="dodge", color = "black") + theme_bw(16) + scale_y_continuous(labels = scales::percent) + xlab("Quality score") + ylab("Percentage of reads") + theme(axis.text = element_text(color="black"), axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1)) + scale_fill_manual(values=colors.use)
 
 ####
 # QHist
 ####
 
-infile <- "571834_qhist.txt"
-df1 <- read_tsv(infile)
-df1$type <- "standard"
-colnames(df1)[1] <- str_replace(colnames(df1)[1], "#", "")
-
-infile <- "571835_qhist.txt"
-df2 <- read_tsv(infile)
-df2$type <- "LabOnAChip1"
-colnames(df2)[1] <- str_replace(colnames(df2)[1], "#", "")
-
-
-infile <- "571836_qhist.txt"
-df3 <- read_tsv(infile)
-df3$type <- "LabOnAChip2"
-colnames(df3)[1] <- str_replace(colnames(df3)[1], "#", "")
-
+df1 <- load_bbduk_files("571834/571834_qhist.txt", "standard")
+df2 <- load_bbduk_files("571835/571835_qhist.txt", "LabOnAChip1")
+df3 <- load_bbduk_files("571836/571836_qhist.txt", "LabOnAChip2")
 
 df_plot <- bind_rows(df1, df2, df3)
-
 
 df_plot_sub <- df_plot %>% select(BaseNum, type, Read1_linear, Read2_linear) %>% pivot_longer(c(Read1_linear, Read2_linear))
 df_plot_sub$name <- factor(df_plot_sub$name)
 levels(df_plot_sub$name) <- c("Paired End #1", "Paired End #2")
 
 
-ggplot(df_plot_sub,aes(x = BaseNum, y = value))  + geom_line(aes(group=type, color=type)) + facet_grid(. ~ name) + theme_bw(16) + scale_color_manual(values=c("#4682b4", "#5e99c5", "#D74B4B")) +
+ggplot(df_plot_sub,aes(x = BaseNum, y = value))  + geom_line(aes(group=type, color=type)) + facet_grid(. ~ name) + theme_bw(16) + scale_color_manual(values=colors.use) +
   ylim(c(0,35)) + ylab("Quality score") + xlab("Base position") + theme(axis.text = element_text(color="black"), legend.title=element_blank())
 
 ####
 # Metaphlan Plots
 ####
 
-load_metaphlan <- function(infile, type="genus") {
+load_metaphlan <- function(infile, metadata, level="genus") {
   df <- read_tsv(infile, comment = "#", col_names=FALSE)
   
-  if (type == "genus") {
+  if (level == "genus") {
     df <- df[str_detect(df$X1,"g__[A-Za-z]+$"),]
     df$X1 <- sapply(df$X1, function(x) str_split(x, fixed("|"))[[1]][6])
   } else {
@@ -74,23 +55,15 @@ load_metaphlan <- function(infile, type="genus") {
     df$X1 <- sapply(df$X1, function(x) str_split(x, fixed("|"))[[1]][7])
     
   }
+  df$type <- metadata
   return(df)
 }
 
 
 # Genus level
-infile <- "571834_metphlan.txt"
-df1 <- load_metaphlan(infile)
-df1$type <- "Standard"
-
-infile <- "571835_metphlan.txt"
-df2 <- load_metaphlan(infile)
-df2$type <- "LabOnAChip1"
-
-
-infile <- "571836_metphlan.txt"
-df3 <- load_metaphlan(infile)
-df3$type <- "LabOnAChip2"
+df1 <- load_metaphlan("571834/571834_metphlan.txt", "Standard")
+df2 <- load_metaphlan("571835/571835_metphlan.txt", "LabOnAChip1")
+df3 <- load_metaphlan("571836/571836_metphlan.txt", "LabOnAChip2")
 
 df_plot <- bind_rows(df1, df2, df3)
 df_plot <- df_plot %>% select(X1, X3, type) %>% rename(genus=X1, abundance=X3)
@@ -103,18 +76,9 @@ ggplot(df_plot, aes(x = type, y = abundance)) + geom_bar(stat = "identity", aes(
 
 
 # Species level
-infile <- "571834_metphlan.txt"
-df1 <- load_metaphlan(infile, "species")
-df1$type <- "Standard"
-
-infile <- "571835_metphlan.txt"
-df2 <- load_metaphlan(infile, "species")
-df2$type <- "LabOnAChip1"
-
-
-infile <- "571836_metphlan.txt"
-df3 <- load_metaphlan(infile, "species")
-df3$type <- "LabOnAChip2"
+df1 <- load_metaphlan("571834/571834_metphlan.txt", "Standard", "species")
+df2 <- load_metaphlan("571835/571835_metphlan.txt", "LabOnAChip1", "species")
+df3 <- load_metaphlan("571836/571836_metphlan.txt", "LabOnAChip2", "species")
 
 df_plot <- bind_rows(df1, df2, df3)
 df_plot <- df_plot %>% select(X1, X3, type) %>% rename(species=X1, abundance=X3)
@@ -143,10 +107,6 @@ for (ind in indirs) {
   infile.mapped <- sprintf("%s/%s_R1.GC.mapped.txt", ind, ind)
   results <- bind_rows(results, data.frame(ind=ind, gc_full=count_gc(infile), gc_mapped=count_gc(infile.mapped)))
 }
-results$type <- c("Standard","LabOnAChip1","LabOnAChip2")
-
-
-results <- read.table("gc_data.csv", sep = ",", header = TRUE)
 results$gc_full <- results$gc_full / 100
 results$gc_mapped <- results$gc_mapped / 100
 results$group <- c("Standard","LabOnAChip","LabOnAChip")
@@ -185,7 +145,7 @@ ggplot(filter(df_assembly, metric=="l50"), aes(x = group, y = value)) + geom_bar
 
 
 #####
-# GC content vs coverage in bins
+# GC content vs coverage in bins. Slides 7-10 in the slideshow
 #####
 
 df_mapped <- read_csv("mapped_gc_content.csv")
