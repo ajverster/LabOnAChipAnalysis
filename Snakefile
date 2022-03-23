@@ -13,7 +13,9 @@ rule all:
 		expand("{run}/{run}_metphlan.txt", run=RUNS),
                 expand("{run}/MetaSpades/", run=RUNS),
 		"mapped_gc_content.csv",
-		"assembly_stats.csv"
+		"assembly_stats.csv",
+		expand("{run}/{run}_R1.GC.txt",run=RUNS)
+		
 
 rule gzip:
 	input:
@@ -67,7 +69,7 @@ rule metaphlan_marker_ab:
                 R2="{run}/{run}_R2.qc.fastq.gz",
         output:
                 ab="{run}/{run}_metphlan_geneabundance.txt",
-                bowtie="{run}/{run}.metaphlanbowtie.gz",
+                bowtie="{run}/{run}.metaphlanbowtie_alt.gz",
 	shell:
 		"/home/adrian/anaconda3/envs/16S/bin/metaphlan {input.R1},{input.R2} --input_type fastq -o {output.ab} --nproc 8 --bowtie2out {output.bowtie} -t marker_ab_table" 
 
