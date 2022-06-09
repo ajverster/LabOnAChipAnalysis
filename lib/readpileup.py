@@ -39,8 +39,8 @@ def quantify_qc_windows(vals, genome, window_size=1000, step_size = 50):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    infiles = sys.argv[1:4]
-    outfile = sys.argv[4]
+    infiles = sys.argv[1:-1]
+    outfile = sys.argv[-1]
     
     df_full = pd.DataFrame()
     for infile in infiles:
@@ -58,7 +58,7 @@ if __name__ == "__main__":
         
         print(infile)
         for key in vals:
-            print(key, np.mean(vals[key]), np.std(vals[key]))
+            print("key: %s,  covg of bins: %.2f std of bin covg %.2f" %(key,  np.mean(vals[key]), np.std(vals[key])))
 
         df_full = df_full.append(df_intermediate)
     df_full.to_csv(outfile, index=False)
