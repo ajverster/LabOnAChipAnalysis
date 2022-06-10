@@ -17,5 +17,6 @@ adaptors='Data/adapters.fa' #Path to the adaptors that are trimmed by bbduk
 
 species_trees=["s__Listeria_monocytogenes"]
 species_trees_genomes={"s__Listeria_monocytogenes": "/media/Data/LabOnAChip/PhylogeneticTrees/Genomes/ListeriaGenomes/"}
+infile_markers="/media/Data/LabOnAChip/PhylogeneticTrees/Genomes/ListeriaCoreGenes99.fasta"
 
 mode="downsample"
