@@ -18,8 +18,9 @@ rule all:
         "%s/mapped_gc_content.csv" %(INDIR),
         "%s/assembly_stats.csv" %(INDIR),
         expand("%s/{run}/{run}_R1.GC.txt" %(INDIR),run=RUNS),
-        expand("%s/{run}/{run}_%s_filter.vcf" %(INDIR, config.mapping_str), run=RUNS),
+        expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
         expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
+	expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
         
 
 rule gzip:
@@ -122,7 +123,7 @@ rule metaspades:
                 #R1="%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR),
                 #R2="%s/{run}/{run}_R2.qc.fastq.gz" %(INDIR),
     output:
-        "%s/{run}/MetaSpades/" %(INDIR)
+        directory("%s/{run}/MetaSpades/" %(INDIR))
     shell:
         "metaspades.py -1 {input.R1} -2 {input.R2} -o {output}"
 
@@ -286,21 +287,13 @@ rule phylogenetic_trees:
         #consensus=expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
         prokka=expand("%s/{run}_%s_consensus_{{species}}_prokka/" %(INDIR, config.mapping_str), run=RUNS)
     output:
-        outdir="%s/phylogenetic_tree_{species}/" %(INDIR),
+        outdir=directory("%s/phylogenetic_tree_{species}/" %(INDIR)),
         aln="%s/phylogenetic_tree_alignment_{species}.fasta" %(INDIR),
     params:
         infile_marker_genes=config.infile_markers
     run:
         genome_folder = config.species_trees_genomes[wildcards.species]
-        #temp_dir = "/tmp/%s_%s" %(Path(INDIR).name, wildcards.species)
-        # copy the new genome into db_folder
-        #cmd_run = "python lib/prep_genome_directory.py --species {wildcards.species} --indir_genomes %s --outdir_use %s" %(genome_folder, temp_dir)
-        #for infile_consensus in input.consensus:
-        #    cmd_run += " --infile_consensus " + infile_consensus
-        #shell(cmd_run)
-        #print(temp_dir)
-        
-        shell("python ../PhylogeneticTrees/bioinformatics_parsing/src/bioinformatics_parsing/parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method fasttree" %(genome_folder, INDIR))
+        shell("python ../PhylogeneticTrees/bioinformatics_parsing/src/bioinformatics_parsing/parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method raxml" %(genome_folder, INDIR))
 
 rule phylogenetic_trees_all:
     input:

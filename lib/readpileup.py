@@ -53,10 +53,8 @@ if __name__ == "__main__":
             df = pd.DataFrame(results[sp], columns = ["pos","gc","covg"])
             df["species"] = sp
             df_intermediate = df_intermediate.append(df)
-        df_intermediate["infile"] = Path(infile).parts[0]
+        df_intermediate["infile"] = Path(infile).name
         df_intermediate.to_csv(outfile, index=False)
-        
-        print(infile)
         for key in vals:
             print("key: %s,  covg of bins: %.2f std of bin covg %.2f" %(key,  np.mean(vals[key]), np.std(vals[key])))
 
