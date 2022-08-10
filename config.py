@@ -1,8 +1,6 @@
-#RUNS = ["571834","571835","571836"]
-#RUNS = ["BMH-2022-000098","PB-AO2"]
-#INDIR = "/media/Data/LabOnAChip/Mar23-2022"
-RUNS = ["BMH-2022-000100","BMH-2022-000101"]
-INDIR = "/media/Data/LabOnAChip/Apr26-2022"
+
+RUNS = ["BMH-2022-000224","BMH-2022-000225"]
+INDIR = "/media/Data/LabOnAChip/Jul26-2022"
 
 # Mapping
 mapping_db="Data/combined.fasta"
@@ -19,4 +17,4 @@ species_trees=["s__Listeria_monocytogenes"]
 species_trees_genomes={"s__Listeria_monocytogenes": "/media/Data/LabOnAChip/PhylogeneticTrees/Genomes/ListeriaGenomes/"}
 infile_markers="/media/Data/LabOnAChip/PhylogeneticTrees/Genomes/ListeriaCoreGenes99.fasta"
 
-mode="downsample"
+downsample=True

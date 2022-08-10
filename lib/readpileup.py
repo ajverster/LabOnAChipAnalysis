@@ -4,6 +4,8 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 import logging
+import argparse
+from tqdm import tqdm
 from pathlib import Path
 
 csv.field_size_limit(sys.maxsize)
@@ -24,40 +26,43 @@ def read_pileup(infile):
         genome[sp] = np.array(genome[sp])
     return vals, genome
 
-def quantify_qc_windows(vals, genome, window_size=1000, step_size = 50):
-    results = defaultdict(list)
+def quantify_qc_windows(vals, genome, window_sizes=[1000], step_size = 50):
+    results = []
     for sp in genome:
-        assert len(genome[sp]) == len(vals[sp])
-        i = 0
-        while i + window_size < len(genome[sp]):
-            gc_content = np.isin(genome[sp][i:i+window_size], ["G","C"]).sum() / window_size
-            covg = np.mean(vals[sp][i:i+window_size])
-            results[sp].append((i, gc_content, covg))
-            i += step_size
+        for window in tqdm(window_sizes, desc="going through window sizes"):
+            assert len(genome[sp]) == len(vals[sp])
+            i = 0
+            while i + window < len(genome[sp]):
+                gc_content = np.isin(genome[sp][i:i+window], ["G","C"]).sum() / window
+                covg = np.mean(vals[sp][i:i+window])
+                results.append([sp,i, gc_content, covg, window])
+                i += step_size
     return results
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    infiles = sys.argv[1:-1]
-    outfile = sys.argv[-1]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--infiles', default=[], action="append")
+    parser.add_argument('--outfile')
+    parser.add_argument('--window_sizes', default=[], type=int, action="append")
+    parser.add_argument('--step_size', default=50, type=int)
+    args = parser.parse_args()
     
     df_full = pd.DataFrame()
-    for infile in infiles:
+    for infile in args.infiles:
         logging.info("currently processing {}".format(infile))
         vals, genome = read_pileup(infile)
-        results = quantify_qc_windows(vals, genome)
+        results = quantify_qc_windows(vals, genome, args.window_sizes, args.step_size)
 
         df_intermediate = pd.DataFrame()
-        for sp in results:
-            df = pd.DataFrame(results[sp], columns = ["pos","gc","covg"])
-            df["species"] = sp
-            df_intermediate = df_intermediate.append(df)
+        df = pd.DataFrame(results, columns = ["species","pos","gc","covg","window_size"])
+        df_intermediate = pd.concat([df_intermediate, df])
         df_intermediate["infile"] = Path(infile).name
-        df_intermediate.to_csv(outfile, index=False)
         for key in vals:
             print("key: %s,  covg of bins: %.2f std of bin covg %.2f" %(key,  np.mean(vals[key]), np.std(vals[key])))
 
         df_full = df_full.append(df_intermediate)
-    df_full.to_csv(outfile, index=False)
+    
+    df_full.to_csv(args.outfile, index=False)
 

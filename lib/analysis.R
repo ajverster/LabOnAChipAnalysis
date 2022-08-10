@@ -8,19 +8,20 @@ library('gridExtra')
 # AQHist Plot
 ####
 
-params <- read_yaml("params.yaml")
+params <- read_yaml("params_graphing.yaml")
+indir <- params$indir
 samples <- params$samples #c("BMH-2022-000100","BMH-2022-000101")
 samples.names <- params$samples_names #c("LabOnAChip", "Standard")
 colors.use <- params$colors_use #c("#4682b4", "#D74B4B")
 w.use <- params$w_use #800
 h.use <- params$h_use #800
-outfile.quality <- params$outfile_quality #"QualityBins.png"
-outfile.qhist <- params$outfile_qhist #"QualityHist.png"
+outfile.quality <- file.path(indir, params$outfile_quality) #"QualityBins.png"
+outfile.qhist <- file.path(indir, params$outfile_qhist) #"QualityHist.png"
 
-outfile.metaphlan.genus <- params$outfile_metaphlan_genus #"MetaphlanGenus.png"
-outfile.metaphlan.species <- params$outfile_metaphlan_species #"MetaphlanSpecies.png"
-outfile.gc <- params$outfile_gc #"GC_Coarse.png"
-outfile.assembly <- params$outfile_assembly
+outfile.metaphlan.genus <- file.path(indir, params$outfile_metaphlan_genus) #"MetaphlanGenus.png"
+outfile.metaphlan.species <- file.path(indir, params$outfile_metaphlan_species) #"MetaphlanSpecies.png"
+outfile.gc <- file.path(indir, params$outfile_gc) #"GC_Coarse.png"
+outfile.assembly <- file.path(indir, params$outfile_assembly)
 
 load_bbduk_files <- function(infile, label) {
 	df <- read_tsv(infile)
@@ -31,7 +32,7 @@ load_bbduk_files <- function(infile, label) {
 
 df_plot <- data.frame()
 for (i in 1:length(samples)) {
-  df1 <- load_bbduk_files(sprintf("%s/aqhist.txt",samples[i]), samples.names[i])
+  df1 <- load_bbduk_files(file.path(indir, samples[i], "aqhist.txt"), samples.names[i])
   df_plot <- bind_rows(df_plot, df1)
 }
 
@@ -49,7 +50,7 @@ dev.off()
 
 df_plot <- data.frame()
 for (i in 1:length(samples)) {
-  df1 <- load_bbduk_files(sprintf("%s/qhist.txt",samples[i]), samples.names[i])
+  df1 <- load_bbduk_files(file.path(indir,samples[i],"qhist.txt"), samples.names[i])
   df_plot <- bind_rows(df_plot, df1)
 }
 
@@ -86,7 +87,7 @@ load_metaphlan <- function(infile, metadata, level="genus") {
 
 df_plot <- data.frame()
 for (i in 1:length(samples)) {
-  df1 <- load_metaphlan(sprintf("%s/%s_metaphlan.txt",samples[i], samples[i]), samples.names[i])
+  df1 <- load_metaphlan(file.path(indir, samples[i], sprintf("%s_metaphlan.txt",samples[i])), samples.names[i])
   df_plot <- bind_rows(df_plot, df1)
 }
 
@@ -94,7 +95,7 @@ for (i in 1:length(samples)) {
 df_plot <- df_plot %>% select(X1, X3, type) %>% rename(genus=X1, abundance=X3)
 
 i <- 1
-df1 <- load_metaphlan(sprintf("%s/%s_metaphlan.txt",samples[i], samples[i]), samples.names[i])
+df1 <- load_metaphlan(file.path(indir, samples[i], sprintf("%s_metaphlan.txt",samples[i])), samples.names[i])
 
 ab.use <- params$ab_use
 if (length(ab.use) == 3) {
@@ -115,7 +116,7 @@ dev.off()
 
 df_plot <- data.frame()
 for (i in 1:length(samples)) {
-  df1 <- load_metaphlan(sprintf("%s/%s_metaphlan.txt",samples[i], samples[i]), samples.names[i], "species")
+  df1 <- load_metaphlan(file.path(indir, samples[i], sprintf("%s_metaphlan.txt",samples[i])), samples.names[i], "species")
   df_plot <- bind_rows(df_plot, df1)
 }
 
@@ -146,8 +147,8 @@ count_gc <- function(infile) {
 
 results <- data.frame()
 for (ind in samples) {
-  infile <- sprintf("%s/%s_R1.GC.txt", ind, ind)
-  infile.mapped <- sprintf("%s/%s_R1.GC.mapped.txt", ind, ind)
+  infile <- file.path(indir, ind, sprintf("%s_R1.GC.txt", ind))
+  infile.mapped <- file.path(indir, ind, sprintf("%s_R1.GC.mapped.txt",ind))
   results <- bind_rows(results, data.frame(ind=ind, gc_full=count_gc(infile), gc_mapped=count_gc(infile.mapped)))
 }
 results$gc_full <- results$gc_full / 100
@@ -179,7 +180,7 @@ ggplot(df_plot, aes(x=species, y = gc)) + geom_bar(stat="identity", aes(fill = s
 # Assembly statistics
 ####
 
-df_assembly <- read.table("assembly_stats.csv", sep = ",", header=TRUE)
+df_assembly <- read.table(file.path(indir,"assembly_stats.csv"), sep = ",", header=TRUE)
 df_meta <- data.frame(infile=samples, group=samples.names, colors=colors.use)
 df_assembly <- left_join(df_assembly, df_meta)
 print(df_assembly)
@@ -190,13 +191,13 @@ p2 <- ggplot(filter(df_assembly, metric=="n50"), aes(x = group, y = value, fill=
 grid.arrange(p1,p2, ncol=2)
 dev.off()
 
-exit()
+quit(status=0)
 
 #####
 # GC content vs coverage in bins. Slides 7-10 in the slideshow
 #####
 
-df_mapped <- read_csv("mapped_gc_content.csv")
+df_mapped <- read_csv(file.path("mapped_gc_content.csv"))
 df_mapped$infile <- factor(df_mapped$infile)
 levels(df_mapped$infile)  <- c("Standard","LabOnAChip1","LabOnAChip2")
 

@@ -8,21 +8,22 @@ from pathlib import Path
 import pandas as pd
 
 RUNS = config.RUNS
+if len(RUNS) == 0:
+    RUNS = [x.name for x in Path(config.INDIR).glob("BMH*") if bool(x.is_dir())]
 INDIR = config.INDIR
 
 rule all:
     input:
-        expand("%s/{run}/qhist.txt" %(INDIR), run=RUNS),
+        #expand("%s/{run}/qhist.txt" %(INDIR), run=RUNS),
         expand("%s/{run}/{run}_metaphlan.txt" %(INDIR), run=RUNS),
-        expand("%s/{run}/MetaSpades/" %(INDIR), run=RUNS),
-        "%s/mapped_gc_content.csv" %(INDIR),
-        "%s/assembly_stats.csv" %(INDIR),
+        #expand("%s/{run}/MetaSpades/" %(INDIR), run=RUNS),
+        #"%s/mapped_gc_content.csv" %(INDIR),
+        #"%s/assembly_stats.csv" %(INDIR),
         expand("%s/{run}/{run}_R1.GC.txt" %(INDIR),run=RUNS),
-        expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
-        expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
-	expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
+        #expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
+        #expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
+        #expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
         
-
 rule gzip:
     input:
         R1="%s/{run}/{run}_R1.fastq" %(INDIR),
@@ -57,6 +58,7 @@ rule qc_filter:
         bbduk.sh in={input.R1} in2={input.R2} out={output.R1} out2={output.R2} maq={params.quality} ref={params.adaptors} qtrim={params.qtrim} trimq={params.quality} minlength={params.min_len} tpe tbo qhist={output.qhist} lhist={output.lhist} aqhist={output.aqhist} overwrite=t forcetrimright=150 2> {log.filter_stats}
         '''
 
+
 rule count_reads:
     input:
         R1_all=expand("%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR), run=RUNS),
@@ -69,8 +71,8 @@ rule count_reads:
 
 rule downsample:
     input:
-        R1="%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR),
-        R2="%s/{run}/{run}_R2.qc.fastq.gz" %(INDIR),
+        R1=ancient("%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR)),
+        R2=ancient("%s/{run}/{run}_R2.qc.fastq.gz" %(INDIR)),
         read_counts="%s/read_counts.csv" %(INDIR)
     output:
         R1="%s/{run}/{run}_R1.qc.downsample.fastq.gz" %(INDIR),
@@ -78,7 +80,6 @@ rule downsample:
     run:
         df_counts = pd.read_csv(input.read_counts)
         min_counts = int(df_counts["n_reads"].min())
-        print(min_counts)
         outfile_R1_nonzip = output.R1.replace(".gz","")
         outfile_R2_nonzip = output.R2.replace(".gz","")
         shell("seqtk sample -s100 {input.R1} %i > %s" %(min_counts, outfile_R1_nonzip))
@@ -86,8 +87,9 @@ rule downsample:
         shell("gzip %s" %(outfile_R1_nonzip))
         shell("gzip %s" %(outfile_R2_nonzip))
 
+
 def input_reads(wildcards):
-    if config.mode == "downsample":
+    if config.downsample:
         return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R2.qc.downsample.fastq.gz".format(wildcards=wildcards)}
     else:
         return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R2.qc.fastq.gz".format(wildcards=wildcards)}
@@ -100,9 +102,7 @@ rule metaphlan:
         ab="%s/{run}/{run}_metaphlan.txt" %(INDIR),
         bowtie="%s/{run}/{run}.metaphlanbowtie.gz" %(INDIR),
     run:
-        print(input.R1)
-        print(input.R2)
-        shell("/home/adrian/anaconda3/envs/16S/bin/metaphlan {input.R1},{input.R2} --input_type fastq -o {output.ab} --nproc 8 --bowtie2out {output.bowtie}")
+        shell("metaphlan {input.R1},{input.R2} --input_type fastq -o {output.ab} --nproc 8 --bowtie2out {output.bowtie}")
 
 
 # I didn't end up using this. I thought it might be helpful to look at the abundances of the individual marker genes, but it ended up leading me astray.
@@ -120,8 +120,6 @@ rule metaphlan:
 rule metaspades:
     input:
         unpack(input_reads)
-                #R1="%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR),
-                #R2="%s/{run}/{run}_R2.qc.fastq.gz" %(INDIR),
     output:
         directory("%s/{run}/MetaSpades/" %(INDIR))
     shell:
@@ -145,8 +143,6 @@ rule metaspades_stats:
 rule midas:
     input:
         unpack(input_reads)
-                #R1="%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR),
-                #R2="%s/{run}/{run}_R2.qc.fastq.gz" %(INDIR),
     output:
         "%s/{run}/MIDAS" %(INDIR)
     shell:
@@ -158,14 +154,14 @@ rule midas:
 rule map:
     input:
         unpack(input_reads)
-                #R1="%s/{run}/{run}_R1.qc.fastq.gz" %(INDIR),
-                #R2="%s/{run}/{run}_R2.qc.fastq.gz" %(INDIR),
     output:
         "%s/{run}/{run}_%s_mapped.sam" %(INDIR, config.mapping_str)
     params:
         db=config.mapping_db
+    resources:
+        n_cores=8
     shell:
-        "bbmap.sh in={input.R1} in2={input.R2} out={output} ref={params.db} ambig=toss"
+        "bbmap.sh in={input.R1} in2={input.R2} out={output} ref={params.db} ambig=toss threads={resources.n_cores}"
 
 ####
 # This currently uses k=1, so it just counts GC content
@@ -173,15 +169,21 @@ rule map:
 
 
 def input_reads_and_bowtie(wildcards):
-        if config.mode == "downsample":
-                return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{wildcards.run}/{wildcards.run}.metaphlanbowtie.gz"}
+        if config.downsample:
+                #print("{wildcards.run}")
+                #return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{}/{}".format(wildcards.run, wildcards.run) + ".metaphlanbowtie.gz"}
+                #z = {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{}/{}.metaphlanbowtie.gz".format(wildcards.run, wildcards.run)}
+                #print(z)
+                #return z
+                return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{wildcards.run}/{wildcards.run}.metaphlanbowtie.gz".format(wildcards=wildcards)}
         else:
-                return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{wildcards.run}/{wildcards.run}.metaphlanbowtie.gz"}
+                return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{wildcards.run}/{wildcards.run}.metaphlanbowtie.gz".format(wildcards=wildcards)}
 
 
 rule count_kmers:
     input:
         unpack(input_reads_and_bowtie)
+#        R1=ancient("%s/{run}/{run}_R1.fastq.gz" %(INDIR)),
     output:
         GC="%s/{run}/{run}_R1.GC.txt" %(INDIR),
         GC_mapped="%s/{run}/{run}_R1.GC.mapped.txt" %(INDIR)
@@ -204,9 +206,11 @@ rule pileup:
         shell("samtools sort {output.bam} -o {output.bam_sorted}")
         shell("samtools mpileup {output.bam_sorted} -f {params.db}  > {output.pileup}")
 
+
 rule pileup_all:
     input:
         expand("%s/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
+
 
 rule free_bayes:
     input:
@@ -218,6 +222,7 @@ rule free_bayes:
     shell:
         "freebayes -f {params.db} --ploidy 1 {input} > {output}"
 
+
 rule filter_free_bayes:
     input:
         "%s/{run}/{run}_%s.vcf" %(INDIR, config.mapping_str),
@@ -227,6 +232,7 @@ rule filter_free_bayes:
         shell("cat {input} | vcffilter -f 'QUAL > 20' -f 'DP > 10' > %s" %(output.gz.replace(".gz","")))
         shell("bgzip %s" %(output.gz.replace(".gz","")))
         shell("bcftools index {output}")
+
 
 rule consensus_sequence:
     input:
@@ -238,11 +244,13 @@ rule consensus_sequence:
     shell:
         "bcftools consensus {input} --fasta-ref {params.db} > {output}"
 
+
 rule phylophlan_db:
     output:
         "/media/Data/LabOnAChip/PhylogeneticTrees/phylophlan_databases/{species}"
     shell:
         "phylophlan_setup_database -g {wildcards.species} -o {output} --verbose"
+
 
 rule phylophlan:
     input:
@@ -295,6 +303,7 @@ rule phylogenetic_trees:
         genome_folder = config.species_trees_genomes[wildcards.species]
         shell("python ../PhylogeneticTrees/bioinformatics_parsing/src/bioinformatics_parsing/parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method raxml" %(genome_folder, INDIR))
 
+
 rule phylogenetic_trees_all:
     input:
         expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
@@ -304,9 +313,11 @@ rule mapped_gc_bins:
     input:
         expand("%s/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
     output:
-        "%s/mapped_gc_content.csv" %(INDIR)
-    shell:
-        "python lib/readpileup.py {input} {output}"
+        "%s/mapped_gc_content.csv" %(INDIR),
+    run:
+        infiles = "--infiles " + " --infiles ".join(input)
+        shell("python lib/readpileup.py %s --outfile {output} --window_size 100 --window_size 1000 --window_size 10000" %(infiles))
+
 
 rule coverage_quantification:
     input:
