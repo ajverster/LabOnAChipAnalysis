@@ -17,11 +17,17 @@ w.use <- params$w_use #800
 h.use <- params$h_use #800
 outfile.quality <- file.path(indir, params$outfile_quality) #"QualityBins.png"
 outfile.qhist <- file.path(indir, params$outfile_qhist) #"QualityHist.png"
+min_ab_metaphlan <- params$min_ab_metaphlan
 
 outfile.metaphlan.genus <- file.path(indir, params$outfile_metaphlan_genus) #"MetaphlanGenus.png"
 outfile.metaphlan.species <- file.path(indir, params$outfile_metaphlan_species) #"MetaphlanSpecies.png"
 outfile.gc <- file.path(indir, params$outfile_gc) #"GC_Coarse.png"
 outfile.assembly <- file.path(indir, params$outfile_assembly)
+
+# Convert ab_use from grams to molar
+ab.use <- params$ab_use / params$genome_size
+ab.use <- ab.use / sum(ab.use) * 100
+
 
 load_bbduk_files <- function(infile, label) {
 	df <- read_tsv(infile)
@@ -97,7 +103,6 @@ df_plot <- df_plot %>% select(X1, X3, type) %>% rename(genus=X1, abundance=X3)
 i <- 1
 df1 <- load_metaphlan(file.path(indir, samples[i], sprintf("%s_metaphlan.txt",samples[i])), samples.names[i])
 
-ab.use <- params$ab_use
 if (length(ab.use) == 3) {
 	tax <- c("g__Listeria", "g__Escherichia", "g__Salmonella")
 } else
@@ -105,7 +110,7 @@ if (length(ab.use) == 3) {
 
 df_plot <- bind_rows(df_plot, data.frame(genus = tax, abundance = ab.use, type = "Theoretical"))
 df_plot$abundance <- df_plot$abundance / 100
-
+df_plot <- dplyr::filter(df_plot, abundance > min_ab_metaphlan)
 
 png(outfile.metaphlan.genus, width=w.use, height=h.use)
 ggplot(df_plot, aes(x = type, y = abundance)) + geom_bar(stat = "identity", aes(fill = genus), color = "black") + theme_bw(16) + scale_y_continuous(labels = scales::percent) + 
@@ -130,6 +135,7 @@ if (length(ab.use) == 3) {
 
 df_plot <- bind_rows(df_plot, data.frame(species = tax, abundance = ab.use, type = "Theoretical"))
 df_plot$abundance <- df_plot$abundance / 100
+df_plot <- dplyr::filter(df_plot, abundance > min_ab_metaphlan)
 
 png(outfile.metaphlan.species, width=w.use, height=h.use)
 ggplot(df_plot, aes(x = type, y = abundance)) + geom_bar(stat = "identity", aes(fill = species), color = "black") + theme_bw(16) + scale_y_continuous(labels = scales::percent) + 

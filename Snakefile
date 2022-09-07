@@ -11,18 +11,21 @@ RUNS = config.RUNS
 if len(RUNS) == 0:
     RUNS = [x.name for x in Path(config.INDIR).glob("BMH*") if bool(x.is_dir())]
 INDIR = config.INDIR
+if INDIR[-1] == "/":
+    INDIR = INDIR[:-1]
+
 
 rule all:
     input:
-        #expand("%s/{run}/qhist.txt" %(INDIR), run=RUNS),
+        expand("%s/{run}/qhist.txt" %(INDIR), run=RUNS),
         expand("%s/{run}/{run}_metaphlan.txt" %(INDIR), run=RUNS),
-        #expand("%s/{run}/MetaSpades/" %(INDIR), run=RUNS),
-        #"%s/mapped_gc_content.csv" %(INDIR),
-        #"%s/assembly_stats.csv" %(INDIR),
+        expand("%s/{run}/MetaSpades/" %(INDIR), run=RUNS),
+        "%s/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
+        "%s/assembly_stats.csv" %(INDIR),
         expand("%s/{run}/{run}_R1.GC.txt" %(INDIR),run=RUNS),
-        #expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
-        #expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
-        #expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
+        expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
+        expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
+        expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
         
 rule gzip:
     input:
@@ -161,7 +164,8 @@ rule map:
     resources:
         n_cores=8
     shell:
-        "bbmap.sh in={input.R1} in2={input.R2} out={output} ref={params.db} ambig=toss threads={resources.n_cores}"
+        "bbmap.sh in={input.R1} in2={input.R2} out={output} ref={params.db} ambig=toss threads={resources.n_cores} trimreaddescriptions=t"
+        #"bowtie2 -1 {input.R1} -2 {input.R2} -x {params.db} -p {resources.n_cores} | awk -F \"\\t\" '$3 != \"*\"' > {output}"
 
 ####
 # This currently uses k=1, so it just counts GC content
@@ -170,11 +174,6 @@ rule map:
 
 def input_reads_and_bowtie(wildcards):
         if config.downsample:
-                #print("{wildcards.run}")
-                #return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{}/{}".format(wildcards.run, wildcards.run) + ".metaphlanbowtie.gz"}
-                #z = {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{}/{}.metaphlanbowtie.gz".format(wildcards.run, wildcards.run)}
-                #print(z)
-                #return z
                 return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.downsample.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{wildcards.run}/{wildcards.run}.metaphlanbowtie.gz".format(wildcards=wildcards)}
         else:
                 return {'R1':str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'R2': str(INDIR) + "/{wildcards.run}/{wildcards.run}_R1.qc.fastq.gz".format(wildcards=wildcards), 'metaphlan_bowtie': str(INDIR) + "/{wildcards.run}/{wildcards.run}.metaphlanbowtie.gz".format(wildcards=wildcards)}
@@ -183,7 +182,6 @@ def input_reads_and_bowtie(wildcards):
 rule count_kmers:
     input:
         unpack(input_reads_and_bowtie)
-#        R1=ancient("%s/{run}/{run}_R1.fastq.gz" %(INDIR)),
     output:
         GC="%s/{run}/{run}_R1.GC.txt" %(INDIR),
         GC_mapped="%s/{run}/{run}_R1.GC.mapped.txt" %(INDIR)
@@ -204,7 +202,7 @@ rule pileup:
     run:
         shell("samtools view -S -b {input} > {output.bam}")
         shell("samtools sort {output.bam} -o {output.bam_sorted}")
-        shell("samtools mpileup {output.bam_sorted} -f {params.db}  > {output.pileup}")
+        shell("samtools mpileup {output.bam_sorted} -f {params.db} > {output.pileup}")
 
 
 rule pileup_all:
@@ -313,7 +311,7 @@ rule mapped_gc_bins:
     input:
         expand("%s/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
     output:
-        "%s/mapped_gc_content.csv" %(INDIR),
+        "%s/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
     run:
         infiles = "--infiles " + " --infiles ".join(input)
         shell("python lib/readpileup.py %s --outfile {output} --window_size 100 --window_size 1000 --window_size 10000" %(infiles))

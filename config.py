@@ -1,10 +1,13 @@
 
-RUNS = ["BMH-2022-000224","BMH-2022-000225"]
-INDIR = "/media/Data/LabOnAChip/Jul26-2022"
+RUNS = ["BMH-2022-000100","BMH-2022-000101"]
+#RUNS = []
+INDIR = "/media/Data/LabOnAChip/Apr26-2022"
 
 # Mapping
-mapping_db="Data/combined.fasta"
-mapping_str="threegenomes"
+#mapping_db="Data/combined.fasta"
+#mapping_str="threegenomes"
+mapping_db="Data/combined_reference.fasta"
+mapping_str="threegenomesRef"
 
 #Quality trimming options
 qtrim="rl" #Trim both sides

@@ -13,7 +13,7 @@ def hash_reads(infile):
     reads_oi = {}
     with open(infile, "tr") as f:
         for line in csv.reader(f, delimiter = "\t"):
-            read = "@" + line[0].replace("_"," ")
+            read = "@" + line[0].split("_")[0]
             reads_oi[read] = 1
     return reads_oi
 
@@ -23,6 +23,7 @@ def count(infile, k = 1, reads_oi = None):
         for i, line in tqdm.tqdm(enumerate(f)):
             if i % 4 == 0:
                 name = line.decode("utf-8").rstrip("\n")
+                name = name.split(" ")[0]
             if reads_oi is not None:
                 if name not in reads_oi:
                     continue
@@ -45,7 +46,9 @@ if __name__ == "__main__":
     reads_oi = hash_reads(infile_reads_oi)
 
     counts = count(infile, reads_oi=reads_oi)
+
     df_out = pd.DataFrame(counts, index=["Counts"]).T
     df_out["percentage"] = df_out["Counts"] / df_out["Counts"].sum() * 100.
+    assert df_out.shape[0] > 0
     df_out.to_csv(outfile)
 
