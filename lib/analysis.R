@@ -2,6 +2,7 @@
 library('tidyverse')
 library('scales')
 library('yaml')
+library('eulerr')
 library('gridExtra')
 
 ####
@@ -19,10 +20,13 @@ outfile.quality <- file.path(indir, params$outfile_quality) #"QualityBins.png"
 outfile.qhist <- file.path(indir, params$outfile_qhist) #"QualityHist.png"
 min_ab_metaphlan <- params$min_ab_metaphlan
 
-outfile.metaphlan.genus <- file.path(indir, params$outfile_metaphlan_genus) #"MetaphlanGenus.png"
-outfile.metaphlan.species <- file.path(indir, params$outfile_metaphlan_species) #"MetaphlanSpecies.png"
-outfile.gc <- file.path(indir, params$outfile_gc) #"GC_Coarse.png"
-outfile.assembly <- file.path(indir, params$outfile_assembly)
+
+prefix <- paste0(basename(indir),"-")
+outfile.metaphlan.genus <- file.path(indir, paste0(prefix,params$outfile_metaphlan_genus)) #"MetaphlanGenus.png"
+outfile.metaphlan.species <- file.path(indir, paste0(prefix,params$outfile_metaphlan_species)) #"MetaphlanSpecies.png"
+outfile.gc <- file.path(indir, paste0(prefix,params$outfile_gc)) #"GC_Coarse.png"
+outfile.assembly <- file.path(indir, paste0(prefix,params$outfile_assembly))
+outfile.snps <- file.path(indir, paste0(prefix,params$outfile_snps))
 
 # Convert ab_use from grams to molar
 ab.use <- params$ab_use / params$genome_size
@@ -197,87 +201,38 @@ p2 <- ggplot(filter(df_assembly, metric=="n50"), aes(x = group, y = value, fill=
 grid.arrange(p1,p2, ncol=2)
 dev.off()
 
-quit(status=0)
 
-#####
-# GC content vs coverage in bins. Slides 7-10 in the slideshow
-#####
+####
+# SNPs
+####
 
-df_mapped <- read_csv(file.path("mapped_gc_content.csv"))
-df_mapped$infile <- factor(df_mapped$infile)
-levels(df_mapped$infile)  <- c("Standard","LabOnAChip1","LabOnAChip2")
+infile_1 <- file.path(indir, samples[1], sprintf("%s_threegenomesstrain_filter.vcf.gz", samples[1]))
+infile_2 <- file.path(indir, samples[2], sprintf("%s_threegenomesstrain_filter.vcf.gz", samples[2]))
+df_snps_1 <- read_tsv(infile_1, comment="##") %>% dplyr::rename(CHROM=`#CHROM`)
+df_snps_2 <- read_tsv(infile_2, comment="##") %>% dplyr::rename(CHROM=`#CHROM`)
 
-#ggplot(filter(df_mapped, species == "listeria"), aes(x = pos, y = covg)) + geom_line(alpha=0.5, aes(color=infile, group=infile)) + scale_color_manual(values = c("#D74B4B","#4682b4", "#5e99c5")) + 
-#                                             theme_bw(16) + theme(legend.title = element_blank())
+df_snps_2_sub <- dplyr::select(df_snps_2, CHROM, POS, REF, ALT) %>% dplyr::rename(REF2=REF,ALT2=ALT)
+df_snps_merge <- dplyr::select(df_snps_1, CHROM, POS, REF, ALT) %>% full_join(df_snps_2_sub, on=c("CHROM","POS")) %>% 
+  filter(((nchar(REF) == 1) | (is.na(REF))) & ((nchar(REF2) == 1) | (is.na(REF2)))) %>%
+  filter(((nchar(ALT) == 1) | (is.na(ALT))) & ((nchar(ALT2) == 1) | (is.na(ALT2))))
 
-ggplot(filter(df_mapped, (species == "listeria") & (covg > 10)),aes(x = gc, y = covg)) + geom_point(aes(fill=infile), alpha=0.5, color="black",pch=21) + facet_wrap(infile ~ ., ncol=2) + theme_bw(16) + 
-  scale_x_continuous(labels = scales::percent) + ylab("Bin Coverage") + xlab("Bin GC%") + ggtitle("1000 bp bins, Listeria monocytogenes") + scale_fill_manual(values = c("#D74B4B","#4682b4", "#5e99c5"))
+#Filter for species
+for (sp in unique(pull(df_snps_merge, CHROM))) {
+    df_snps_merge_sp <- filter(df_snps_merge, CHROM==sp) 
+    n_same <- df_snps_merge_sp %>% filter(!((ALT != ALT2) | (is.na(ALT) & !is.na(ALT2)) | (!is.na(ALT) & is.na(ALT2)))) %>% nrow
+    n_one <- df_snps_merge_sp %>% filter(!is.na(ALT) & is.na(ALT2)) %>% nrow
+    n_two <- df_snps_merge_sp %>% filter(is.na(ALT) & !is.na(ALT2)) %>% nrow
+    n_diff <- df_snps_merge_sp %>% filter(ALT != ALT2) %>% nrow
 
-# Correlation between GC and coverage
-for (infile_sub in unique(df_mapped$infile)) {
-  df_mapped_sub <- filter(df_mapped, (species == "listeria") & (covg > 10) & (infile == infile_sub))
-  print(infile_sub)
-  print(cor(df_mapped_sub$gc, df_mapped_sub$covg, method = "spearman"))
+    n_A <- n_one + n_diff
+    n_B <- n_two + n_diff
+    n_AB <- n_same
+
+
+    VennDiag <- euler(c("A"=n_A, "B"=n_B, "A&B"=n_AB))
+    png(str_replace(outfile.snps,"_sp",paste0("_",sp)), width=w.use*1.15, height=h.use)
+    par(mar = c(20, 20, 20, 20))
+    print(plot(VennDiag, counts = TRUE, font=1, cex=1, alpha=0.5,
+         fill=c("#4682b4", "#D74B4B"), quantities=TRUE, labels = c(samples.names[1], samples.names[2])))
+    dev.off()
 }
-
-df_mapped_nonoverlapping <- df_mapped[seq(from=1,to=nrow(df_mapped), by = 20),]
-
-ggplot(filter(df_mapped_nonoverlapping, (species == "listeria") & (covg > 10)),aes(x = gc, y = covg)) + geom_point(aes(fill=infile), alpha=0.5, color="black",pch=21) + facet_wrap(infile ~ ., ncol=3) + theme_bw(16) +
-scale_x_continuous(labels = scales::percent) + ylab("Bin Coverage") + xlab("Bin GC%") + ggtitle("1000 bp bins, non-overlapping, Listeria monocytogenes") + scale_fill_manual(values = c("#D74B4B","#4682b4", "#5e99c5")) + theme(legend.title=element_blank(), axis.text=element_text(color="black"))
-
-
-for (infile_sub in unique(df_mapped$infile)) {
-  df_mapped_sub <- filter(df_mapped, (species == "Ecoli") & (covg > 10) & (infile == infile_sub))
-  print(infile_sub)
-  print(cor(df_mapped_sub$gc, df_mapped_sub$covg, method = "spearman"))
-}
-
-ggplot(filter(df_mapped, (species == "Ecoli") & (covg > 10)),aes(x = gc, y = covg)) + geom_point(aes(fill=infile), alpha=0.5, color="black",pch=21) + facet_wrap(infile ~ ., ncol=3) + theme_bw(16) + 
-  scale_x_continuous(labels = scales::percent) + ylab("Bin Coverage") + xlab("Bin GC%") + ggtitle("1000 bp bins, Escherichia coli
-") + scale_fill_manual(values = c("#D74B4B","#4682b4", "#5e99c5")) + theme(legend.title=element_blank())
-
-
-ggplot(filter(df_mapped_nonoverlapping, (species == "Ecoli") & (covg > 10)),aes(x = gc, y = covg)) + geom_point(aes(fill=infile), alpha=0.5, color="black",pch=21) + facet_wrap(infile ~ ., ncol=3) + theme_bw(16) + 
-  scale_x_continuous(labels = scales::percent) + ylab("Bin Coverage") + xlab("Bin GC%") + ggtitle("1000 bp bins, non-overlapping, Escherichia coli
-")  + scale_fill_manual(values = c("#D74B4B","#4682b4", "#5e99c5"))  + theme(legend.title=element_blank(), axis.text=element_text(color="black"))
-
-
-ggplot(filter(df_mapped, (species == "Ecoli") & (covg > 10)),aes(x = gc, y = covg)) + stat_bin_2d() + facet_wrap(infile ~ ., ncol=2) + theme_bw(16) + 
-  scale_x_continuous(labels = scales::percent) + ylab("Bin Coverage") + xlab("Bin GC%") + ggtitle("1000 bp bins, Ecoli")
-
-
-#### Show a full coverage plot, over the course of the genome
-df_plot <- filter(df_mapped, (species == "listeria") & (infile != "GC"))
-ggplot(df_plot, aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#D74B4B","#4682b4", "#5e99c5"))  + theme_bw(16) + theme(legend.title=element_blank()) + scale_x_continuous(labels=comma) + theme(axis.text = element_text(color="black")) + xlab("") + ylab("Coverage") + ggtitle("Listeria monocytogenes")
-
-df_plot <- filter(df_mapped, (species == "Ecoli") & (infile != "GC"))
-ggplot(df_plot, aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#D74B4B","#4682b4", "#5e99c5"))  + theme_bw(16) + 
-  theme(legend.title=element_blank()) + scale_x_continuous(labels=comma) + theme(axis.text = element_text(color="black")) + xlab("") + ylab("Coverage") + ggtitle("Escherichia coli") + ylim(c(0,2000))
-
-
-
-start <- 120000
-width <- 10000
-df_plot <- filter(df_mapped, species == "listeria", pos > start, pos < (start + width))
-var(df_plot$gc)
-
-trans <- 5000
-ggplot(df_plot, aes(x = pos)) + geom_line(data=filter(df_plot, infile=="Standard"), lwd=1.5,aes(y=gc * trans, color="GC")) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_y_continuous(sec.axis = sec_axis(~./trans, name="GC", labels = scales::percent)) + scale_color_manual(values = c("black","#4682b4", "#5e99c5","#D74B4B"))  + theme_bw(16) +
-  theme(legend.title=element_blank()) + scale_x_continuous(labels=comma) + theme(axis.text = element_text(color="black")) + xlab("") + ylab("Coverage") + ggtitle("Listeria monocytogenes, arbitrary region")
-
-
-# This is in one of the genomic islands
-df_plot <- filter(df_mapped, species == "Ecoli", pos > 460000, pos < 470000)
-
-trans <- 1500
-ggplot(df_plot, aes(x = pos)) + geom_line(data=filter(df_plot, infile=="Standard"), lwd=1.5,aes(y=gc * trans, color="GC")) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_y_continuous(name="coverage", sec.axis = sec_axis(~./trans, name="GC", labels = scales::percent)) + scale_color_manual(values = c("black","#4682b4", "#5e99c5","#D74B4B"))  + theme_bw(16) + 
-  theme(legend.title=element_blank()) + scale_x_continuous(labels=comma) + theme(axis.text = element_text(color="black")) + xlab("") + ylab("Coverage") + ggtitle("Escherichia coli, genomic island")
-
-
-
-df_plot <- filter(df_mapped, species == "Ecoli", pos > 390000, pos < 400000)
-var(df_plot$gc)
-
-trans <- 1500
-ggplot(df_plot, aes(x = pos)) + geom_line(data=filter(df_plot, infile=="Standard"), lwd=1.5,aes(y=gc * trans, color="GC")) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_y_continuous(name="coverage", sec.axis = sec_axis(~./trans, name="GC", labels = scales::percent)) + scale_color_manual(values = c("black","#4682b4", "#5e99c5","#D74B4B"))  + theme_bw(16)
-

@@ -14,18 +14,17 @@ INDIR = config.INDIR
 if INDIR[-1] == "/":
     INDIR = INDIR[:-1]
 
-
 rule all:
     input:
         expand("%s/{run}/qhist.txt" %(INDIR), run=RUNS),
         expand("%s/{run}/{run}_metaphlan.txt" %(INDIR), run=RUNS),
         expand("%s/{run}/MetaSpades/" %(INDIR), run=RUNS),
-        "%s/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
-        "%s/assembly_stats.csv" %(INDIR),
+        "%s/Results/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
+        "%s/Results/assembly_stats.csv" %(INDIR),
         expand("%s/{run}/{run}_R1.GC.txt" %(INDIR),run=RUNS),
         expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
         expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
-        expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
+        expand("%s/Results/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
         
 rule gzip:
     input:
@@ -275,43 +274,42 @@ rule consensus_prokka:
     input:
         consensus="%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str)
     output:
-        prokka=directory("%s/{run}_%s_consensus_{species}_prokka/" %(INDIR, config.mapping_str)),
-        tr="%s/{run}_%s_consensus_{species}_prokka/{run}_{species}.ffn" %(INDIR, config.mapping_str),
-        db="%s/{run}_%s_consensus_{species}_prokka/{run}_{species}_nuc_BLASTDB.nhr" %(INDIR, config.mapping_str),
-        seq="%s/{run}/{run}_%s_consensus_{species}.fasta" %(INDIR, config.mapping_str),
+        prokka=directory("%s/Results/{run}_%s_consensus_{species}_prokka/" %(INDIR, config.mapping_str)),
+        tr="%s/Results/{run}_%s_consensus_{species}_prokka/{run}_{species}.ffn" %(INDIR, config.mapping_str),
+        db="%s/Results/{run}_%s_consensus_{species}_prokka/{run}_{species}_nuc_BLASTDB.nhr" %(INDIR, config.mapping_str),
+        seq="%s/Results/{run}/{run}_%s_consensus_{species}.fasta" %(INDIR, config.mapping_str),
     resources:
         cpus=8
     run:
         prefix = wildcards.run + "_" + wildcards.species
-        shell("python ../PhylogeneticTrees/bioinformatics_parsing/src/bioinformatics_parsing/parse_sequences.py --infile_seqs {input} --genes_oi {wildcards.species} --outfile {output.seq}")
+        shell("parse_sequences.py --infile_seqs {input} --genes_oi {wildcards.species} --outfile {output.seq}")
         shell("prokka --outdir {output.prokka} --cpus {resources.cpus} {output.seq} --centre X --compliant --quiet --prefix %s --force" %(prefix))
         shell("makeblastdb -in {output.tr} -dbtype nucl -out %s" %(output.db.replace(".nhr","")))
 
 
 rule phylogenetic_trees:
     input:
-        #consensus=expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
-        prokka=expand("%s/{run}_%s_consensus_{{species}}_prokka/" %(INDIR, config.mapping_str), run=RUNS)
+        prokka=expand("%s/Results/{run}_%s_consensus_{{species}}_prokka/" %(INDIR, config.mapping_str), run=RUNS)
     output:
-        outdir=directory("%s/phylogenetic_tree_{species}/" %(INDIR)),
-        aln="%s/phylogenetic_tree_alignment_{species}.fasta" %(INDIR),
+        outdir=directory("%s/Results/phylogenetic_tree_{species}/" %(INDIR)),
+        aln="%s/Results/phylogenetic_tree_alignment_{species}.fasta" %(INDIR),
     params:
         infile_marker_genes=config.infile_markers
     run:
         genome_folder = config.species_trees_genomes[wildcards.species]
-        shell("python ../PhylogeneticTrees/bioinformatics_parsing/src/bioinformatics_parsing/parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method raxml" %(genome_folder, INDIR))
+        shell("parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method raxml" %(genome_folder, INDIR))
 
 
 rule phylogenetic_trees_all:
     input:
-        expand("%s/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
+        expand("%s/Results/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
 
 
 rule mapped_gc_bins:
     input:
-        expand("%s/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
+        expand("%s/Results/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
     output:
-        "%s/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
+        "%s/Results/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
     run:
         infiles = "--infiles " + " --infiles ".join(input)
         shell("python lib/readpileup.py %s --outfile {output} --window_size 100 --window_size 1000 --window_size 10000" %(infiles))
@@ -321,7 +319,7 @@ rule coverage_quantification:
     input:
         expand("%s/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
     output:
-        "%s/mapped_coverage.csv" %(INDIR)
+        "%s/Results/mapped_coverage.csv" %(INDIR)
     params:
         db=config.mapping_db
     shell:
