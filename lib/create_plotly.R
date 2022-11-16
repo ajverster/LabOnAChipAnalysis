@@ -11,9 +11,9 @@ date <- args[2]
 window_size_use <- 1000
 type_tag <- args[3]
 
-dir <- dirname(args[1])
-outdir <- file.path(dir, "Results")
-
+#dir <- dirname(args[1])
+#outdir <- file.path(dir, "Results")
+outdir <- dirname(args[1])
 
 # Load up the genoome contigs
 contig_lengths_all <- list()
@@ -54,7 +54,7 @@ for (sp in unique(df_mapped_nonoverlapping$species)) {
   }
   #contig_lengths <- contig_lengths_all[[sp_write]]
   sp_use <- str_replace_all(sp,"s__","") %>% str_replace_all("_"," ")
-  p <- ggplot(filter(df_mapped_nonoverlapping, (species == sp)), aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#D74B4B","#4682b4"))  + theme_bw(16) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
+  p <- ggplot(filter(df_mapped_nonoverlapping, (species == sp)), aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#4682b4", "#D74B4B"))  + theme_bw(16) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
 
     if (FALSE) {
     if (length(contig_lengths) > 0) { 

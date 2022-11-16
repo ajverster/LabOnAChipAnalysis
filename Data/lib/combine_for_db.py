@@ -10,7 +10,7 @@ import argparse
 
 def load_seq_cat(infile, mode="cat"):
     seq_cat = ""
-    with gzip.open(infile,"rt") as f:
+    with open(infile,"rt") as f:
         for seq in SeqIO.parse(f, "fasta"):
             seq_cat += seq.seq
             if args.mode == "first":

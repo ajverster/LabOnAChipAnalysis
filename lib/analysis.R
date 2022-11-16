@@ -28,6 +28,9 @@ outfile.gc <- file.path(indir, paste0(prefix,params$outfile_gc)) #"GC_Coarse.png
 outfile.assembly <- file.path(indir, paste0(prefix,params$outfile_assembly))
 outfile.snps <- file.path(indir, paste0(prefix,params$outfile_snps))
 
+outfile.aqhist.df <- file.path(indir, paste0(prefix,params$outfile_aqhist_df))
+outfile.qhist.df <- file.path(indir, paste0(prefix,params$outfile_qhist_df))
+
 # Convert ab_use from grams to molar
 ab.use <- params$ab_use / params$genome_size
 ab.use <- ab.use / sum(ab.use) * 100
@@ -49,6 +52,9 @@ for (i in 1:length(samples)) {
 
 df_plot_group <- df_plot %>% filter(Quality > 0) %>% group_by(type,bin=cut(Quality, breaks = seq(from=0,to=40,by=5), labels = paste(seq(from=0,to=35,by=5), "-", seq(from=5,to=40,by=5)))) %>% summarize(sum=sum(fraction1))
 
+# Write to file
+df_plot_group %>% add_column(run=basename(indir)) %>% write_csv(outfile.aqhist.df)
+
 png(outfile.quality, width=w.use, height=h.use)
 ggplot(df_plot_group, aes(x = bin, y = sum)) + geom_bar(stat="identity", aes(fill = type), position="dodge", color = "black") + theme_bw(16) + scale_y_continuous(labels = scales::percent) + xlab("Quality score") + ylab("Percentage of reads") + theme(axis.text = element_text(color="black"), axis.text.x = element_text(angle=90, vjust = 0.5, hjust=1)) + scale_fill_manual(values=colors.use)
 dev.off()
@@ -69,6 +75,8 @@ df_plot_sub <- df_plot %>% select(BaseNum, type, Read1_linear, Read2_linear) %>%
 df_plot_sub$name <- factor(df_plot_sub$name)
 levels(df_plot_sub$name) <- c("Paired End #1", "Paired End #2")
 
+# Write to file
+df_plot_sub %>% add_column(run=basename(indir)) %>% write_csv(outfile.qhist.df)
 
 png(outfile.qhist, width=w.use*1.6, height=h.use)
 ggplot(df_plot_sub,aes(x = BaseNum, y = value))  + geom_line(aes(group=type, color=type)) + facet_grid(. ~ name) + theme_bw(16) + scale_color_manual(values=colors.use) +

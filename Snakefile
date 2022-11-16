@@ -163,8 +163,8 @@ rule map:
     resources:
         n_cores=8
     shell:
-        "bbmap.sh in={input.R1} in2={input.R2} out={output} ref={params.db} ambig=toss threads={resources.n_cores} trimreaddescriptions=t"
-        #"bowtie2 -1 {input.R1} -2 {input.R2} -x {params.db} -p {resources.n_cores} | awk -F \"\\t\" '$3 != \"*\"' > {output}"
+        #"bbmap.sh in={input.R1} in2={input.R2} out={output} ref={params.db} ambig=toss threads={resources.n_cores} trimreaddescriptions=t"
+        "bowtie2 -1 {input.R1} -2 {input.R2} -x {params.db} -p {resources.n_cores} | awk -F \"\\t\" '$3 != \"*\"' > {output}"
 
 ####
 # This currently uses k=1, so it just counts GC content
@@ -226,9 +226,15 @@ rule filter_free_bayes:
     output:
         gz="%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str),
     run:
-        shell("cat {input} | vcffilter -f 'QUAL > 20' -f 'DP > 10' > %s" %(output.gz.replace(".gz","")))
+        #shell("cat {input} | vcffilter -f 'QUAL > 20' -f 'DP > 10' > %s" %(output.gz.replace(".gz","")))
+        shell("cat {input} | vcffilter -f 'DP > 10' > %s" %(output.gz.replace(".gz","")))
         shell("bgzip %s" %(output.gz.replace(".gz","")))
         shell("bcftools index {output}")
+
+
+rule snps:
+    input:
+        expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
 
 
 rule consensus_sequence:
@@ -297,7 +303,7 @@ rule phylogenetic_trees:
         infile_marker_genes=config.infile_markers
     run:
         genome_folder = config.species_trees_genomes[wildcards.species]
-        shell("parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method raxml" %(genome_folder, INDIR))
+        shell("parse_phylogeny.py --outfile_aln {output.aln} --outdir_tree {output.outdir} --infile_markers {params.infile_marker_genes} --indir %s --indir_secondary %s --method raxml" %(genome_folder, INDIR + "/Results"))
 
 
 rule phylogenetic_trees_all:
@@ -307,12 +313,12 @@ rule phylogenetic_trees_all:
 
 rule mapped_gc_bins:
     input:
-        expand("%s/Results/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
+        expand("%s/{run}/{run}_%s_mapped.pileup" %(INDIR, config.mapping_str), run=RUNS)
     output:
         "%s/Results/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
     run:
         infiles = "--infiles " + " --infiles ".join(input)
-        shell("python lib/readpileup.py %s --outfile {output} --window_size 100 --window_size 1000 --window_size 10000" %(infiles))
+        shell("python lib/readpileup.py %s --outfile {output} --window_size 100 --window_size 1000 --window_size 10000 --infile_seqs %s" %(infiles, config.mapping_db))
 
 
 rule coverage_quantification:
