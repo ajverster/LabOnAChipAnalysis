@@ -216,8 +216,8 @@ dev.off()
 
 infile_1 <- file.path(indir, samples[1], sprintf("%s_threegenomesstrain_filter.vcf.gz", samples[1]))
 infile_2 <- file.path(indir, samples[2], sprintf("%s_threegenomesstrain_filter.vcf.gz", samples[2]))
-df_snps_1 <- read_tsv(infile_1, comment="##") %>% dplyr::rename(CHROM=`#CHROM`)
-df_snps_2 <- read_tsv(infile_2, comment="##") %>% dplyr::rename(CHROM=`#CHROM`)
+df_snps_1 <- read_tsv(infile_1, comment="##") %>% dplyr::rename(CHROM=`#CHROM`) %>% filter(QUAL >= 20)
+df_snps_2 <- read_tsv(infile_2, comment="##") %>% dplyr::rename(CHROM=`#CHROM`) %>% filter(QUAL >= 20)
 
 df_snps_2_sub <- dplyr::select(df_snps_2, CHROM, POS, REF, ALT) %>% dplyr::rename(REF2=REF,ALT2=ALT)
 df_snps_merge <- dplyr::select(df_snps_1, CHROM, POS, REF, ALT) %>% full_join(df_snps_2_sub, on=c("CHROM","POS")) %>% 

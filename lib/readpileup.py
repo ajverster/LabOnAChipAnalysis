@@ -67,18 +67,11 @@ def quantify_qc_windows(df_covg, len_dict, window_sizes=[1000], step_size = 50):
     for sp in df_covg["chromosome"].unique():
         df_covg_sub = df_covg.query('chromosome == "{}"'.format(sp))
         for window in tqdm(window_sizes, desc="going through window sizes"):
-            #assert len(genome[sp]) == len(vals[sp])
             i = 0
-            #while i + window < len(genome[sp]):
             while i + window < len_dict[sp]:
                 pos = i + window/2
-                gc = df_covg.iloc[i:i+window,1].isin(["G","C"]).sum() / window
-                covg = df_covg.iloc[i:i+window,3].mean()
-                #gc_content = np.isin(genome[sp][i:i+window], ["G","C"]).sum() / window
-                #covg = np.mean(vals[sp][i:i+window])
-                # if covg > 1000:
-                #    print(i, positions[sp][i], i+window, sp, covg)
-                #results.append([sp,positions[sp][i], gc_content, covg, window])
+                gc = df_covg_sub.iloc[i:i+window,1].isin(["G","C"]).sum() / window
+                covg = df_covg_sub.iloc[i:i+window,3].mean()
                 results.append([sp, pos, gc, covg, window])
                 i += step_size
     return results
