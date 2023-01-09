@@ -1,8 +1,8 @@
 
-RUNS = ["BMH-2022-000100","BMH-2022-000101"]
+RUNS = ["BMH-2022-000507","BMH-2022-000508"]
 #RUNS = []
-INDIR = "/media/Data/LabOnAChip/Apr26-2022"
-OUTDIR = "/media/Data/LabOnAChip/Apr26-2022/Results/"
+INDIR = "/media/Data/LabOnAChip/Dec19-2022-Rep3"
+OUTDIR = "/media/Data/LabOnAChip/Dec19-2022-Rep3/Results/"
 
 # Mapping
 mapping_db="Data/combined_strain.fasta"

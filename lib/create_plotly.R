@@ -67,11 +67,8 @@ do_snp_plot <- function(df_mapped_nonoverlapping) {
 
   indir <- dirname(dirname(infile_mapped))
   for (sp in unique(df_mapped_nonoverlapping$species)) {
-    df_snps_full <- data.frame()
 
    df_plot_line <- filter(df_mapped_nonoverlapping, species==sp)
-   print(head(df_plot_line))
-   print(tail(df_plot_line))
 
     if (sp%in%names(translation_dict)) {
       sp_write <- translation_dict[[sp]]
@@ -106,7 +103,9 @@ do_snp_plot <- function(df_mapped_nonoverlapping) {
     stopifnot(length(unique(c(pos_one, pos_two))) == length(pos_one) + length(pos_two))
     
     df_snps <- data.frame(pos=c(pos_one,pos_two), sample=c(rep(basename(names(df_list)[1]), times=length(pos_one)), rep(basename(names(df_list)[2]), times=length(pos_two))))
-    df_snps_full <- bind_rows(df_snps_full, df_snps) %>% left_join(df_meta)
+    #df_snps_full <- bind_rows(df_snps_full, df_snps) %>% left_join(df_meta)
+    df_snps_full <- df_snps %>% left_join(df_meta)
+    print(filter(df_snps_full, (pos > 2787000) & (pos < 2788000)))
 
   # Count the unique SNPs in each bin
   df_summary_all <- data.frame()
@@ -123,14 +122,12 @@ do_snp_plot <- function(df_mapped_nonoverlapping) {
   df_plot_line <- filter(df_mapped_nonoverlapping, species==sp)
   df_plot_line$sample <- str_replace(df_plot_line$infile, sprintf("_threegenomes%s_mapped.pileup",type_tag),"")
   df_plot_point <- df_summary_all %>% left_join(df_plot_line)
-  print(c(sp,"line",max(df_plot_line$pos)))
-  print(c(sp,"point",min(df_plot_point$pos)))
 
   p <- NULL
   pl <- NULL
-  p <- ggplot() + geom_line(data=df_plot_line, aes(x = pos, y = covg, color=sample), alpha=0.5) + geom_point(data=df_plot_point, aes(x=pos, y=covg, fill=sample, size=n_snps), pch=21, color="black", show.legend=FALSE) + 
+  p <- ggplot() + geom_line(data=df_plot_line, aes(x = pos, y = covg, color=sample), alpha=0.5) + geom_point(data=df_plot_point, aes(x=pos, y=covg, color=sample, size=n_snps), pch=19, show.legend=FALSE) + 
           theme_bw(16) + scale_color_manual(values = c("#4682b4", "#D74B4B")) + scale_fill_manual(values = c("#4682b4", "#D74B4B")) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
-  pl <- ggplotly(p, tooltip="n_snps")
+  pl <- ggplotly(p, tooltip=c("n_snps","pos")) %>% style(hoverinfo = "skip", traces = c(1,2))
 
   pl <- style(pl, name = "Powerblade", traces = 1) %>% style(pl, name = "Standard", traces = 2)
   pl <- pl %>% layout(legend=list(x=0.015,y=0.97,title=list(text=""),bgcolor="#FFFFFFFF",borderwidth=1, bordercolor="grey"))

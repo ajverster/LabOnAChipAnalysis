@@ -3,6 +3,9 @@
 # conda activate 16S
 # snakemake -j 3 -p
 
+# Problems with prokka are fixed by doing:
+# set -gx PERL5LIB /home/adrian/miniconda3/envs/bcftools/lib/perl5/site_perl/5.22.0/
+
 import config
 from pathlib import Path
 import pandas as pd
@@ -11,6 +14,7 @@ RUNS = config.RUNS
 if len(RUNS) == 0:
     RUNS = [x.name for x in Path(config.INDIR).glob("BMH*") if bool(x.is_dir())]
 INDIR = config.INDIR
+OUTDIR = config.OUTDIR
 if INDIR[-1] == "/":
     INDIR = INDIR[:-1]
 
@@ -132,11 +136,11 @@ rule metaspades_stats:
     input:
         expand("%s/{run}/MetaSpades/" %(INDIR), run=RUNS)
     output:
-        "%s/assembly_stats.csv" %(INDIR)
+        "%s/Results/assembly_stats.csv" %(INDIR)
     run:
         infiles = [Path(x) / "scaffolds.fasta" for x in input]
         infiles = [str(x) for x in infiles]
-        shell("python lib/quantify_assemblies.py %s %s" %(" ".join(infiles), INDIR))
+        shell("python lib/quantify_assemblies.py %s %s" %(" ".join(infiles), OUTDIR))
 
 
 ####
