@@ -1,0 +1,14 @@
+name: genome_bin_pca
+title: genome_bin_pca
+username:
+account: bfssiadrianverster
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6607502
+bundleId: 6521809
+url: https://bfssiadrianverster.shinyapps.io/genome_bin_pca/
+when: 1668621678.16159
+lastSyncTime: 1668621678.16161
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: Apr26-mapped_gc_content.csv|Aug3-mapped_gc_content.csv|Jul26-mapped_gc_content.csv|Mar23-mapped_gc_content.csv|precompute.R
