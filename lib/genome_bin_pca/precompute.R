@@ -62,49 +62,47 @@ pca_multi <- function(infiles, bin_size=1000, species_oi="s__Listeria_monocytoge
     df_gc_content_sub <- process_gc_bins(inf, species_oi)
     df_gc_content_sub <- filter(df_gc_content_sub, window_size == bin_size)
     df_pca_single <- df_gc_content_sub %>% select(-gc,-covg,-window_size) %>% pivot_wider(names_from=pos,values_from=covg_z)
-    print(head(df_pca_single))
     df_pca <- bind_rows(df_pca, df_pca_single)
   }
   pca <- df_pca %>% ungroup %>% select(-infile) %>% data.matrix %>% impute %>% prcomp
 
   df_plot <- pca$x %>% data.frame
   df_plot$infile <- df_pca %>% pull(infile)
-  
   return(df_plot)
   
 }
 
-df_meta <- data.frame(infile=c("BMH-2022-000226_threegenomes_mapped.pileup",
-                               "BMH-2022-000227_threegenomes_mapped.pileup",
-                               "BMH-2022-000224_threegenomes_mapped.pileup",
-                               "BMH-2022-000225_threegenomes_mapped.pileup",
-                               "BMH-2022-000100_threegenomes_mapped.pileup",
-                               "BMH-2022-000101_threegenomes_mapped.pileup",
-                               "BMH-2022-000098_threegenomes_mapped.pileup",
-                               "PB-AO2_threegenomes_mapped.pileup"), date=c("Aug","Aug","Jul","Jul","Apr","Apr","Mar","Mar"),type=c("Powerblade","Standard","Powerblade","Standard","Powerblade","Standard","Standard","Powerblade"))
 
-df_meta$name <- sapply(df_meta$infile, function(x) str_split(x,"_")[[1]][1])
 
-#TODO, make this with the updated gc content files
+args <- commandArgs(trailingOnly=TRUE)
+infile_metadata <- args[1]
+genome <- args[2]
 
-#infiles <- c("Aug3-mapped_gc_content.csv", "Jul26-mapped_gc_content.csv","Apr26-mapped_gc_content.csv", "Mar23-mapped_gc_content.csv")
+df_meta <- read_csv(infile_metadata)
+
+indir <- "/media/Data/LabOnAChip/"
+outdir <- "/media/Data/LabOnAChip/Pipeline/lib/genome_bin_pca/"
+
+expt_dirs <- unique(df_meta$Directory)
+
+infiles <- sapply(expt_dirs, function(x) file.path(indir, x, sprintf("Results/mapped_gc_content_threegenomes%s.csv", genome)))
+
+if (genome == "strain") {
+  strain_names <- c("Lmonocytogenes_4b","EcoliO157EDL933","Senterica_ATCC14028")
+} else if (genome == "Ref") {
+  strain_names <- c("s__Listeria_monocytogenes","s__Escherichia_coli","s__Salmonella_enterica")
+}
 
 df_list <- list()
 
-indir <- "/mnt/labonachip/"
-expt_dirs <- c("Aug3-2022/","Jul26-2022/","Apr26-2022/")
-infiles <- sapply(expt_dirs, function(x) file.path(indir, x, "Results/mapped_gc_content_threegenomesstrain.csv"))
-
-#for (sp_oi in c("s__Listeria_monocytogenes","s__Escherichia_coli","s__Salmonella_enterica")) {
-for (sp_oi in c("Lmonocytogenes_4b","EcoliO157EDL933","Senterica_ATCC14028")) {
+for (sp_oi in strain_names) {
     for (bin_size in c(100,1000,10000)) {
       df_pca <- pca_multi(infiles, bin_size, sp_oi)
-      df_pca$name <- sapply(df_pca$infile, function(x) str_split(x,"_")[[1]][1])
-      df_list[[paste0(bin_size,sp_oi)]] <- df_pca %>% select(-infile) %>% left_join(df_meta, on="tag")
+      df_pca$Samples <- sapply(df_pca$infile, function(x) str_split(x,"_")[[1]][1])
+      df_list[[paste0(bin_size,sp_oi)]] <- df_pca %>% select(-infile) %>% left_join(df_meta, on="Samples")
     }
 }
-print(names(df_list))
 
 
-save.image("/home/averster/Documents/Projects/LapOnAChip/genome_bin_pca/pca_data.RData")
+save.image(file.path(outdir,"pca_data.RData"))
 

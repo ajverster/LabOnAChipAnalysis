@@ -6,11 +6,11 @@ library('Biostrings')
 
 args <- commandArgs(trailingOnly=TRUE)
 
-infile_mapped <- args[1]
-df_mapped <- read_csv(infile_mapped)
-date <- args[2]
-type_tag <- args[3]
-outdir <- dirname(infile_mapped)
+infile_meta <- args[1]
+df_meta <- read_csv(infile_meta)
+type_tag <- args[2]
+
+indir <- "/media/Data/LabOnAChip/"
 window_size_use <- 1000
 min_qual <- 20
 
@@ -19,16 +19,7 @@ translation_dict[["EcoliO157EDL933"]] <- "s__Escherichia_coli"
 translation_dict[["Lmonocytogenes_4b"]] <- "s__Listeria_monocytogenes"
 translation_dict[["Senterica_ATCC14028"]] <- "s__Salmonella_enterica"
 
-df_mapped$infile <- factor(df_mapped$infile)
-
-df_mapped <- filter(df_mapped, window_size == window_size_use)
-gap_size <- df_mapped$pos[2] - df_mapped$pos[1]
-
-min_pos <- df_mapped$pos %>% min
-max_pos <- df_mapped$pos %>% max
-df_mapped_nonoverlapping <- df_mapped %>% filter(pos%in%seq(min_pos, to=max_pos, by = window_size_use))
-
-do_line_plot <- function(df_mapped_nonoverlapping) {
+do_line_plot <- function(df_mapped_nonoverlapping, name) {
   levels(df_mapped_nonoverlapping$infile)  <- c("Powerblade","Standard")
 
   for (sp in unique(df_mapped_nonoverlapping$species)) {
@@ -39,8 +30,15 @@ do_line_plot <- function(df_mapped_nonoverlapping) {
     }
     sp_use <- str_replace_all(sp,"s__","") %>% str_replace_all("_"," ")
     p <- ggplot(filter(df_mapped_nonoverlapping, (species == sp)), aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#4682b4", "#D74B4B"))  + theme_bw(16) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
+  
+    # This was showing line breaks according to the location of the contig breaks
+    # p <- add_contig_line_breaks(p, contig_lengths)
+    pp <- ggplotly(p) %>% layout(legend=list(x=0.015,y=0.97,title=list(text=""),bgcolor="#FFFFFFFF",borderwidth=1, bordercolor="grey"))
+    saveWidget(pp, file.path(outdir,sprintf("%s_%s_%s.html",sp_write,name,type_tag)), selfcontained = F, libdir = "lib")
+  }
+}
 
-      if (FALSE) {
+add_contig_line_breaks <- function(p, contig_lengths) {
       if (length(contig_lengths) > 0) { 
       s <- 0
       for (i in 1:length(contig_lengths)) {
@@ -50,23 +48,19 @@ do_line_plot <- function(df_mapped_nonoverlapping) {
         p <- p + geom_vline(xintercept=s, linetype="dashed", size=0.1, alpha=0.5)
       }
     }
-    }
-
-  
-    pp <- ggplotly(p) %>% layout(legend=list(x=0.015,y=0.97,title=list(text=""),bgcolor="#FFFFFFFF",borderwidth=1, bordercolor="grey"))
-    saveWidget(pp, file.path(outdir,sprintf("%s_%s_%s.html",sp_write,date,type_tag)), selfcontained = F, libdir = "lib")
-  }
+    return(p)
 }
 
 
 #####
 # Do the SNP Plot
 ####
-do_snp_plot <- function(df_mapped_nonoverlapping) {
-  df_meta <- read_csv("metadata.txt")
+do_snp_plot <- function(df_mapped_nonoverlapping, df_meta, name) {
 
   indir <- dirname(dirname(infile_mapped))
   for (sp in unique(df_mapped_nonoverlapping$species)) {
+    #if (sp != "EcoliO157EDL933")
+    #  next
 
    df_plot_line <- filter(df_mapped_nonoverlapping, species==sp)
 
@@ -86,6 +80,7 @@ do_snp_plot <- function(df_mapped_nonoverlapping) {
       sample <- basename(subdir)
       infile <- file.path(subdir, sprintf("%s_threegenomes%s_filter.vcf.gz", sample, type_tag))
       df <- read_tsv(infile, comment="##") %>% dplyr::rename(CHROM=`#CHROM`) %>% filter(QUAL >= min_qual) %>% filter(CHROM==sp)
+      print(paste0("Number of SNP lines ",nrow(df)))
       df_list[[subdir]] <- df
     }
     
@@ -100,41 +95,78 @@ do_snp_plot <- function(df_mapped_nonoverlapping) {
     pos_both <- df_snps_merge_sp %>% filter(!((ALT != ALT2) | (is.na(ALT) & !is.na(ALT2)) | (!is.na(ALT) & is.na(ALT2)))) %>% pull(POS)
     pos_one <- df_snps_merge_sp %>% filter(!is.na(ALT) & is.na(ALT2)) %>% pull(POS)
     pos_two <- df_snps_merge_sp %>% filter(is.na(ALT) & !is.na(ALT2)) %>% pull(POS)
+    
+    #save(list = ls(all.names = TRUE), file = "image.RData", envir = environment())
+    #qwe
+
     stopifnot(length(unique(c(pos_one, pos_two))) == length(pos_one) + length(pos_two))
     
-    df_snps <- data.frame(pos=c(pos_one,pos_two), sample=c(rep(basename(names(df_list)[1]), times=length(pos_one)), rep(basename(names(df_list)[2]), times=length(pos_two))))
-    #df_snps_full <- bind_rows(df_snps_full, df_snps) %>% left_join(df_meta)
-    df_snps_full <- df_snps %>% left_join(df_meta)
-    print(filter(df_snps_full, (pos > 2787000) & (pos < 2788000)))
+    df_snps <- data.frame(pos=c(pos_one,pos_two), Samples=c(rep(basename(names(df_list)[1]), times=length(pos_one)), rep(basename(names(df_list)[2]), times=length(pos_two))))
+    
+    # Create the two dataframes for plotting
+    df_plot_line <- filter(df_mapped_nonoverlapping, species==sp)
+    df_plot_line$Samples <- str_replace(df_plot_line$infile, sprintf("_threegenomes%s_mapped.pileup",type_tag),"")
+    
+    #save(list = ls(all.names = TRUE), file = "image.RData", envir = environment())
+    #qwe
 
-  # Count the unique SNPs in each bin
-  df_summary_all <- data.frame()
-  for (i in seq(from=0,to=max(df_snps_full$pos),by=window_size_use)) {
-    df_snps_sub <- filter(df_snps_full, (Date == date) & (pos > i) & (pos <= i + window_size_use))
-    if (nrow(df_snps_sub) == 0)
-      next
-    df_summary <- df_snps_sub %>% group_by(sample) %>% dplyr::summarize(n_snps=length(pos))
-    df_summary$pos <- (i + window_size_use/2)
-    df_summary_all <- bind_rows(df_summary_all, df_summary)
-  }
+    p <- NULL
+    pl <- NULL
+
+    print(sprintf("Writing to %s",file.path(outdir,sprintf("%s_%s_%s_withSNPs.html",sp_write,name,type_tag))))
+    p <- ggplot() + geom_line(data=df_plot_line, aes(x = pos, y = covg, color=Samples), alpha=0.5)
+
+    if (nrow(df_snps) > 0) {
+      df_snps_full <- df_snps %>% left_join(df_meta)
+      df_summary_all <- data.frame()
+        # Count the unique SNPs in each bin
+        for (i in seq(from=0,to=max(df_snps_full$pos),by=window_size_use)) {
+          df_snps_sub <- filter(df_snps_full, (Name == name) & (pos > i) & (pos <= i + window_size_use))
+          if (nrow(df_snps_sub) == 0)
+            next
+          df_summary <- df_snps_sub %>% group_by(Samples) %>% dplyr::summarize(n_snps=length(pos))
+          df_summary$pos <- (i + window_size_use/2)
+          df_summary_all <- bind_rows(df_summary_all, df_summary)
+        }
+    df_plot_point <- df_summary_all %>% left_join(df_plot_line)
+    p <- p + geom_point(data=df_plot_point, aes(x=pos, y=covg, color=Samples, size=n_snps), pch=19, show.legend=FALSE)
+
+    } else {
+        print(sprintf("No unique SNPs found, only making a line plot for species %s name %s", sp, name))
+    }
   
-  # Create the two dataframes for plotting
-  df_plot_line <- filter(df_mapped_nonoverlapping, species==sp)
-  df_plot_line$sample <- str_replace(df_plot_line$infile, sprintf("_threegenomes%s_mapped.pileup",type_tag),"")
-  df_plot_point <- df_summary_all %>% left_join(df_plot_line)
-
-  p <- NULL
-  pl <- NULL
-  p <- ggplot() + geom_line(data=df_plot_line, aes(x = pos, y = covg, color=sample), alpha=0.5) + geom_point(data=df_plot_point, aes(x=pos, y=covg, color=sample, size=n_snps), pch=19, show.legend=FALSE) + 
-          theme_bw(16) + scale_color_manual(values = c("#4682b4", "#D74B4B")) + scale_fill_manual(values = c("#4682b4", "#D74B4B")) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
-  pl <- ggplotly(p, tooltip=c("n_snps","pos")) %>% style(hoverinfo = "skip", traces = c(1,2))
-
+  p <- p + theme_bw(16) + scale_color_manual(values = c("#4682b4", "#D74B4B")) + scale_fill_manual(values = c("#4682b4", "#D74B4B")) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
+  
+    pl <- ggplotly(p, tooltip=c("n_snps","pos")) %>% style(hoverinfo = "skip", traces = c(1,2))
   pl <- style(pl, name = "Powerblade", traces = 1) %>% style(pl, name = "Standard", traces = 2)
   pl <- pl %>% layout(legend=list(x=0.015,y=0.97,title=list(text=""),bgcolor="#FFFFFFFF",borderwidth=1, bordercolor="grey"))
-    saveWidget(pl, file.path(outdir,sprintf("%s_%s_%s_withSNPs.html",sp_write,date,type_tag)), selfcontained = F, libdir = "lib")
+    saveWidget(pl, file.path(outdir,sprintf("%s_%s_%s_withSNPs.html",sp_write,name,type_tag)), selfcontained = F, libdir = "lib")
 
   }
 }
 
-do_snp_plot(df_mapped_nonoverlapping)
-#do_line_plot(df_mapped_nonoverlapping)
+
+df_meta_sub <- unique(dplyr::select(df_meta, Directory, Name))
+
+for (i in 1:nrow(df_meta_sub)) {
+  dir <- df_meta_sub$Directory[i]
+  name <- df_meta_sub$Name[i]
+
+  infile_mapped <- file.path(indir, dir, sprintf("Results/mapped_gc_content_threegenomes%s.csv", type_tag))
+  outdir <- dirname(infile_mapped)
+
+  df_mapped <- read_csv(infile_mapped)
+  df_mapped$infile <- factor(df_mapped$infile)
+
+  df_mapped <- filter(df_mapped, window_size == window_size_use)
+  gap_size <- df_mapped$pos[2] - df_mapped$pos[1]
+
+  min_pos <- df_mapped$pos %>% min
+  max_pos <- df_mapped$pos %>% max
+  df_mapped_nonoverlapping <- df_mapped %>% filter(pos%in%seq(min_pos, to=max_pos, by = window_size_use))
+  
+  do_snp_plot(df_mapped_nonoverlapping, df_meta, name)
+  do_line_plot(df_mapped_nonoverlapping, name)
+}
+
+
