@@ -36,12 +36,12 @@ quality_plots <- function(indir, samples, samples.names, outfile.plot, outfile.d
 
   p <- ggplot(df_plot_group, aes(x = bin, y = mean, fill = type)) +
     geom_bar(stat = "identity", position = "dodge", color = "black") +
-    geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.2, position = position_dodge(0.9)) +
-    theme_bw(16) +
-    scale_y_continuous(labels = scales::percent) +
+    geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.8, position = position_dodge(0.6)) +
+    theme_classic(16) +
+    scale_y_continuous(labels = scales::percent, expand = expansion(mult = 0)) +
     xlab("Quality score") +
     ylab("Percentage of reads") +
-    theme(axis.text = element_text(color = "black"), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    theme(axis.text = element_text(color = "black", size=12), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position=c(0.2,0.8), legend.title= element_blank(), axis.ticks.x = element_blank(), axis.title=element_text(size=14,face="bold")) +
     scale_fill_manual(values = colors.use)
   
   png(outfile.plot, width = w.use, height = h.use)
