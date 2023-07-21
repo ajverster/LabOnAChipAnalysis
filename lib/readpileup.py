@@ -20,45 +20,28 @@ def read_lengths(infile):
     return lens
 
 def read_pileup(infile, len_dict):
-
-    #vals = defaultdict(list)
-    #genome = defaultdict(list)
-    #positions = defaultdict(list)
-
     rows = []
     with open(infile) as f:
         pos_last = 0
         chrom_last = ""
-        for line in tqdm(csv.reader(f, delimiter = "\t")):
+        for line in tqdm(csv.reader(f, delimiter = "\t"),desc="reading pileup"):
             chrom = line[0]
             pos = int(line[1])
             ref = line[2]
             if (chrom != chrom_last) & (chrom_last != ""):
                 # Fill zeros until the end of the chromosome
                 while pos_last < len_dict[chrom_last]:
-                    print(pos_last, chrom_last, len_dict[chrom_last])
                     rows.append([chrom_last, ref, pos_last, 0])
                     pos_last += 1
             if chrom != chrom_last:
                 pos_last = 0
                 chrom_last = chrom
-            
             while pos != pos_last + 1:
                 # Add zeros
                 pos_last += 1
                 rows.append([chrom, ref, pos_last, 0])
             rows.append([chrom, ref, pos, int(line[3])])
-
             pos_last = pos
-            #vals[line[0]].append(int(line[3]))
-            #genome[line[0]].append(line[2])
-            #positions[line[0]].append(line[1])
-    
-    #for sp in vals:
-    #    vals[sp] = np.array(vals[sp])
-    #    genome[sp] = np.array(genome[sp])
-    #    positions[sp] = np.array(positions[sp])
-    # return vals, genome, positions
     return pd.DataFrame(rows, columns=["chromosome","ref","pos","covg"])
 
 
@@ -66,14 +49,19 @@ def quantify_qc_windows(df_covg, len_dict, window_sizes=[1000], step_size = 50):
     results = []
     for sp in df_covg["chromosome"].unique():
         df_covg_sub = df_covg.query('chromosome == "{}"'.format(sp))
+        df_covg_sub.index = df_covg_sub["pos"].values
         for window in tqdm(window_sizes, desc="going through window sizes"):
-            i = 0
-            while i + window < len_dict[sp]:
-                pos = i + window/2
-                gc = df_covg_sub.iloc[i:i+window,1].isin(["G","C"]).sum() / window
-                covg = df_covg_sub.iloc[i:i+window,3].mean()
-                results.append([sp, pos, gc, covg, window])
-                i += step_size
+            i = 1
+            with tqdm(total=len_dict[sp], desc="quantifying {} window size {}".format(sp, window)) as pbar:
+                while i + window < len_dict[sp]:
+                    pos = i + window/2
+                    #df_covg_sub_sub = df_covg_sub.query('(pos >= {}) & (pos < {})'.format(i, i+window))
+                    df_covg_sub_sub = df_covg_sub.loc[i:i+window,:]
+                    gc = df_covg_sub_sub["ref"].isin(["G","C"]).sum() / window
+                    covg = df_covg_sub_sub["covg"].mean()
+                    results.append([sp, pos, gc, covg, window])
+                    i += step_size
+                    pbar.update(step_size)
     return results
 
 

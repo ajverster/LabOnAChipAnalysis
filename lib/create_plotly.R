@@ -19,6 +19,7 @@ translation_dict[["EcoliO157EDL933"]] <- "s__Escherichia_coli"
 translation_dict[["Lmonocytogenes_4b"]] <- "s__Listeria_monocytogenes"
 translation_dict[["Senterica_ATCC14028"]] <- "s__Salmonella_enterica"
 
+ylimits <- c("Lmonocytogenes_4b"=490, "EcoliO157EDL933"=150, "Senterica_ATCC14028"=80)
 do_line_plot <- function(df_mapped_nonoverlapping, name) {
   levels(df_mapped_nonoverlapping$infile)  <- c("Powerblade","Standard")
 
@@ -29,12 +30,16 @@ do_line_plot <- function(df_mapped_nonoverlapping, name) {
       sp_write <- sp
     }
     sp_use <- str_replace_all(sp,"s__","") %>% str_replace_all("_"," ")
-    p <- ggplot(filter(df_mapped_nonoverlapping, (species == sp)), aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#4682b4", "#D74B4B"))  + theme_bw(16) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position=c(.9,.75), legend.title=element_blank()) + xlab("") + ylab("Coverage") + ggtitle(sp_use)
+    p <- ggplot(filter(df_mapped_nonoverlapping, (species == sp)), aes(x = pos)) + geom_line(alpha=0.5, aes(y=covg, color=infile, group=infile)) + scale_color_manual(values = c("#4682b4", "#D74B4B"))  + theme_bw(16) + scale_x_continuous(labels=comma) + theme(panel.grid=element_blank(), axis.text = element_text(color="black"), legend.position="none") + xlab("") + ylab("Coverage") + ggtitle(sp_use) + ylim(0, ylimits[sp])
   
     # This was showing line breaks according to the location of the contig breaks
     # p <- add_contig_line_breaks(p, contig_lengths)
+
     pp <- ggplotly(p) %>% layout(legend=list(x=0.015,y=0.97,title=list(text=""),bgcolor="#FFFFFFFF",borderwidth=1, bordercolor="grey"))
     saveWidget(pp, file.path(outdir,sprintf("%s_%s_%s.html",sp_write,name,type_tag)), selfcontained = F, libdir = "lib")
+    png(file.path(outdir,sprintf("%s_%s_%s.png",sp_write,name,type_tag)), width=800*1.75, height=800)
+    print(p)
+    dev.off()
   }
 }
 
@@ -145,7 +150,7 @@ do_snp_plot <- function(df_mapped_nonoverlapping, df_meta, name) {
   }
 }
 
-
+print(df_meta)
 df_meta_sub <- unique(dplyr::select(df_meta, Directory, Name))
 
 for (i in 1:nrow(df_meta_sub)) {
@@ -165,7 +170,7 @@ for (i in 1:nrow(df_meta_sub)) {
   max_pos <- df_mapped$pos %>% max
   df_mapped_nonoverlapping <- df_mapped %>% filter(pos%in%seq(min_pos, to=max_pos, by = window_size_use))
   
-  do_snp_plot(df_mapped_nonoverlapping, df_meta, name)
+#  do_snp_plot(df_mapped_nonoverlapping, df_meta, name)
   do_line_plot(df_mapped_nonoverlapping, name)
 }
 

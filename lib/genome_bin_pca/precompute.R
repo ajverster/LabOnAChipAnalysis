@@ -47,7 +47,7 @@ process_gc_bins <- function(infile, species_oi="s__Listeria_monocytogenes") {
   
   df_gc_content <- read_csv(infile)
   df_gc_content <- filter(df_gc_content, species == species_oi)
-  df_gc_content_sub <- filter_bins(df_gc_content, min_cov=30)
+  df_gc_content_sub <- filter_bins(df_gc_content, min_cov=1)
   df_gc_content_sub <- nonoverlapping_bins(df_gc_content_sub)
   df_gc_content_sub <- remove_poor_samples(df_gc_content_sub)
   df_gc_content_sub <- normalize_coverage(df_gc_content_sub)
@@ -61,10 +61,15 @@ pca_multi <- function(infiles, bin_size=1000, species_oi="s__Listeria_monocytoge
   for (inf in infiles) {
     df_gc_content_sub <- process_gc_bins(inf, species_oi)
     df_gc_content_sub <- filter(df_gc_content_sub, window_size == bin_size)
+    print(head(df_gc_content_sub))
     df_pca_single <- df_gc_content_sub %>% select(-gc,-covg,-window_size) %>% pivot_wider(names_from=pos,values_from=covg_z)
     df_pca <- bind_rows(df_pca, df_pca_single)
   }
   pca <- df_pca %>% ungroup %>% select(-infile) %>% data.matrix %>% impute %>% prcomp
+  eigs <- pca$sdev^2
+  print(sprintf("First PC explains %f",round((eigs[1] / sum(eigs) * 100))))
+  #save(list = ls(all.names = TRUE), file = "image.RData", envir = environment())
+  #qwe
 
   df_plot <- pca$x %>% data.frame
   df_plot$infile <- df_pca %>% pull(infile)
@@ -77,6 +82,7 @@ pca_multi <- function(infiles, bin_size=1000, species_oi="s__Listeria_monocytoge
 args <- commandArgs(trailingOnly=TRUE)
 infile_metadata <- args[1]
 genome <- args[2]
+outfile <- args[3]
 
 df_meta <- read_csv(infile_metadata)
 
@@ -95,8 +101,11 @@ if (genome == "strain") {
 
 df_list <- list()
 
+
+#strain_names <- c("Senterica_ATCC14028")
 for (sp_oi in strain_names) {
     for (bin_size in c(100,1000,10000)) {
+    #for (bin_size in c(100)) {
       df_pca <- pca_multi(infiles, bin_size, sp_oi)
       df_pca$Samples <- sapply(df_pca$infile, function(x) str_split(x,"_")[[1]][1])
       df_list[[paste0(bin_size,sp_oi)]] <- df_pca %>% select(-infile) %>% left_join(df_meta, on="Samples")
@@ -104,5 +113,5 @@ for (sp_oi in strain_names) {
 }
 
 
-save.image(file.path(outdir,"pca_data.RData"))
+save.image(file.path(outdir, outfile))
 

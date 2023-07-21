@@ -28,7 +28,7 @@ rule all:
         expand("%s/{run}/{run}_R1.GC.txt" %(INDIR),run=RUNS),
         expand("%s/{run}/{run}_%s_filter.vcf.gz" %(INDIR, config.mapping_str), run=RUNS),
         expand("%s/{run}/{run}_%s_consensus.fasta" %(INDIR, config.mapping_str), run=RUNS),
-        expand("%s/Results/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
+        #expand("%s/Results/phylogenetic_tree_{species}/" %(INDIR), species=config.species_trees)
         
 rule gzip:
     input:
@@ -322,6 +322,7 @@ rule mapped_gc_bins:
         "%s/Results/mapped_gc_content_%s.csv" %(INDIR, config.mapping_str),
     run:
         infiles = "--infiles " + " --infiles ".join(input)
+        shell("mkdir -p %s/Results" %(INDIR))
         shell("python lib/readpileup.py %s --outfile {output} --window_size 100 --window_size 1000 --window_size 10000 --infile_seqs %s" %(infiles, config.mapping_db))
 
 

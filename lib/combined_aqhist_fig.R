@@ -38,10 +38,10 @@ quality_plots <- function(indir, samples, samples.names, outfile.plot, outfile.d
     geom_bar(stat = "identity", position = "dodge", color = "black") +
     geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.8, position = position_dodge(0.6)) +
     theme_classic(16) +
-    scale_y_continuous(labels = scales::percent, expand = expansion(mult = 0)) +
+    scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, .03))) +
     xlab("Quality score") +
     ylab("Percentage of reads") +
-    theme(axis.text = element_text(color = "black", size=12), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position=c(0.2,0.8), legend.title= element_blank(), axis.ticks.x = element_blank(), axis.title=element_text(size=14,face="bold")) +
+    theme(axis.text = element_text(color = "black", size=12), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position=c(0.2,0.8), legend.title= element_blank(), axis.ticks.x = element_blank(), axis.title=element_text(size=14,face="bold"), panel.border = element_rect(color = "#000000", fill = NA, size = 1)) +
     scale_fill_manual(values = colors.use)
   
   png(outfile.plot, width = w.use, height = h.use)

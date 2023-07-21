@@ -335,11 +335,11 @@ for (dir in unique(df_metadata$Directory)) {
     outfile.assembly <- file.path(outdir, paste0(prefix,params$outfile_assembly))
     outfile.snps <- file.path(outdir, paste0(prefix,params$outfile_snps))
     
-    #quality_plots(indir, group_df$Samples, group_df$Type, outfile.quality, outfile.aqhist.df)
-    #qhist_plots(indir, group_df$Samples, group_df$Type, outfile.qhist, outfile.qhist.df)
-    #metaphlan_plots(indir, group_df$Samples, group_df$Type, outfile.metaphlan.species, outfile.metaphlan.genus)
-    #gc_content_plots(indir, group_df$Samples, group_df$Type, outfile.gc)
-    #assembly_plots(indir, group_df$Samples, group_df$Type, outfile.assembly)
+    quality_plots(indir, group_df$Samples, group_df$Type, outfile.quality, outfile.aqhist.df)
+    qhist_plots(indir, group_df$Samples, group_df$Type, outfile.qhist, outfile.qhist.df)
+    metaphlan_plots(indir, group_df$Samples, group_df$Type, outfile.metaphlan.species, outfile.metaphlan.genus)
+    gc_content_plots(indir, group_df$Samples, group_df$Type, outfile.gc)
+    assembly_plots(indir, group_df$Samples, group_df$Type, outfile.assembly)
     snp_plots(indir, group_df$Samples, group_df$Type, outfile.snps)
 
 
