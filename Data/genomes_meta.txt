@@ -1,8 +1,0 @@
-GCF_010374945.1_ASM1037494v1_genomic.fna.gz	Ecoli
-Listeria_monocytogenes_ATCC_19114.fasta.gz	ListeriaMono
-GCA_009990925.1_PDT000129940.2_genomic.fna.gz	Lmonocytogenes_4b
-GCF_000732965.1_ASM73296v1_genomic.fna.gz	EcoliO157EDL933
-GCF_016864495.1_ASM1686449v1_genomic.fna.gz	Senterica_ATCC14028
-GCF_000005845.2_ASM584v2_genomic.fna.gz EcoliReference
-GCF_000196035.1_ASM19603v1_genomic.fna.gz   ListeriaReference
-GCF_000006945.2_ASM694v2_genomic.fna.gz SalmonellaReference
